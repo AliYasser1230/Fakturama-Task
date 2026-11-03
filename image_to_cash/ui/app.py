@@ -1,0 +1,151 @@
+from __future__ import annotations
+
+import os
+import subprocess
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from image_to_cash.errors import ControlNotFound, FlowStopped
+from image_to_cash.settings import Settings
+from image_to_cash.ui.finder import Node, UiaNode, locate, resolve, scope_root
+from image_to_cash.ui.locators import Locators, load_locators
+from image_to_cash.ui.waits import wait_until
+
+
+def find_main_window() -> Any | None:
+    from pywinauto import Desktop
+
+    from image_to_cash.ui.discover import pick_fakturama_window
+
+    own_pid = os.getpid()
+    windows = [
+        (w.window_text(), w.element_info.class_name, w)
+        for w in Desktop(backend="uia").windows(visible_only=False)
+        if w.process_id() != own_pid
+    ]
+    return pick_fakturama_window(windows)
+
+
+def has_menu_bar(window: Any) -> bool:
+    return any(c.control_type == "MenuBar" and c.name == "Application" for c in window.element_info.children())
+
+
+def find_ready_main_window() -> Any | None:
+    window = find_main_window()
+    return window if window is not None and has_menu_bar(window) else None
+
+
+@dataclass(frozen=True)
+class ProbeResult:
+    screen: str
+    control: str
+    found: bool
+    detail: str
+
+
+def probe_tree(main: Node, locators: Locators, screens: list[str] | None = None) -> list[ProbeResult]:
+    results = []
+    for screen_name, screen in locators.screens.items():
+        if screens and screen_name not in screens:
+            continue
+        try:
+            root = scope_root(main, screen.scope)
+        except ControlNotFound:
+            continue
+        for control_name, loc in screen.controls.items():
+            try:
+                node = resolve(root, loc)
+            except ControlNotFound as exc:
+                results.append(ProbeResult(screen_name, control_name, False, str(exc)))
+                continue
+            value = getattr(node, "value", None)
+            detail = f"{node.control_type} {node.name!r} at {node.rect}"
+            if value not in (None, ""):
+                detail += f" value={value!r}"
+            results.append(ProbeResult(screen_name, control_name, True, detail))
+    return results
+
+
+def format_probe(results: list[ProbeResult]) -> list[str]:
+    lines, current = [], None
+    for r in results:
+        if r.screen != current:
+            current = r.screen
+            found = sum(1 for x in results if x.screen == current and x.found)
+            total = sum(1 for x in results if x.screen == current)
+            lines.append(f"{current}: {found}/{total} found")
+        lines.append(f"  {'ok ' if r.found else '-- '} {r.control:22s} {r.detail}")
+    return lines
+
+
+class Fakturama:
+    def __init__(self, window: Any, locators: Locators, settings: Settings):
+        self.window = window
+        self.locators = locators
+        self.settings = settings
+
+    @classmethod
+    def connect(cls, settings: Settings, locators: Locators | None = None) -> "Fakturama":
+        locators = locators or load_locators(settings.locators_file)
+        if find_main_window() is None:
+            if not settings.fakturama_exe:
+                raise FlowStopped("Fakturama is not running. Start it and wait for its main window, "
+                                  "or set FAKTURAMA_EXE in .env so it can be started automatically.")
+            exe = Path(settings.fakturama_exe)
+            if not exe.is_file():
+                raise FlowStopped(f"FAKTURAMA_EXE does not point to a file: {exe}")
+            subprocess.Popen([str(exe)], cwd=str(exe.parent))
+        window = wait_until(find_ready_main_window, timeout=settings.startup_timeout,
+                            what="Fakturama's main window and its menu bar")
+        if window.is_minimized():
+            window.restore()
+        return cls(window, locators, settings)
+
+    @property
+    def pid(self) -> int:
+        return self.window.process_id()
+
+    @property
+    def title(self) -> str:
+        return self.window.window_text()
+
+    def root(self) -> UiaNode:
+        return UiaNode(self.window.element_info)
+
+    def find(self, screen: str, control: str) -> UiaNode:
+        return locate(self.root(), self.locators, screen, control)
+
+    def is_open(self, screen: str) -> bool:
+        try:
+            scope_root(self.root(), self.locators.screen(screen).scope)
+            return True
+        except ControlNotFound:
+            return False
+
+    def wait_open(self, screen: str, timeout: float | None = None) -> UiaNode:
+        scope = self.locators.screen(screen).scope
+        return wait_until(lambda: scope_root(self.root(), scope),
+                          timeout=timeout or self.settings.ui_timeout, what=f"screen {screen} ({scope.describe()})")
+
+    def wait_closed(self, screen: str, timeout: float | None = None) -> None:
+        wait_until(lambda: not self.is_open(screen),
+                   timeout=timeout or self.settings.ui_timeout, what=f"screen {screen} to close")
+
+    def wait_for(self, screen: str, control: str, timeout: float | None = None) -> UiaNode:
+        return wait_until(lambda: self.find(screen, control),
+                          timeout=timeout or self.settings.ui_timeout, what=f"{screen}.{control}")
+
+    def bring_to_front(self) -> None:
+        if self.window.is_minimized():
+            self.window.restore()
+        self.window.set_focus()
+        time.sleep(0.2)
+
+    def maximize(self) -> None:
+        if not self.window.is_maximized():
+            self.window.maximize()
+
+    def probe(self, screens: list[str] | None = None) -> list[ProbeResult]:
+        return probe_tree(self.root(), self.locators, screens)

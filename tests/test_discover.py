@@ -46,16 +46,17 @@ def test_safe_name():
     assert safe_name("a/b\\c:d*?") == "a_b_c_d"
 
 
-def test_pick_fakturama_window_ignores_consoles_and_prefers_swt():
-    console, other, swt = object(), object(), object()
+def test_pick_fakturama_window_only_takes_fakturamas_own_windows():
+    console, browser, splash, main_window = object(), object(), object(), object()
     windows = [
         ("C:\\Fakturama-Task - PowerShell", "CASCADIA_HOSTING_WINDOW_CLASS", console),
-        ("Fakturama help", "Chrome_WidgetWin_1", other),
-        ("Fakturama", "SWT_Window0", swt),
+        ("Downloads - Fakturama - Microsoft Edge", "Chrome_WidgetWin_1", browser),
+        ("Fakturama", "SWT_Window0", splash),
+        ("Fakturama - C:\\FakturamaData", "SWT_Window0", main_window),
     ]
-    assert pick_fakturama_window(windows) is swt
-    assert pick_fakturama_window(windows[:2]) is other
-    assert pick_fakturama_window(windows[:1]) is None
+    assert pick_fakturama_window(windows) is main_window
+    assert pick_fakturama_window(windows[:3]) is splash
+    assert pick_fakturama_window(windows[:2]) is None
 
 
 def test_cli_discover_list(capsys):

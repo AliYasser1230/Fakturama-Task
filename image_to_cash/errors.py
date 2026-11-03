@@ -39,3 +39,7 @@ class ControlNotFound(FlowStopped):
 
 class VerificationFailed(FlowStopped):
     pass
+
+
+class WaitTimeout(FlowStopped):
+    pass

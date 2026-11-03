@@ -162,18 +162,15 @@ def _walk(info, depth: int, budget: list[int]) -> dict[str, Any]:
     return node
 
 
-_CONSOLE_CLASSES = {"ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS", "PseudoConsoleWindow"}
-
-
 def pick_fakturama_window(windows: list[tuple[str, str, Any]]) -> Any:
     candidates = [
-        (title, cls, w) for title, cls, w in windows
-        if "fakturama" in (title or "").lower() and cls not in _CONSOLE_CLASSES
+        (title, w) for title, cls, w in windows
+        if (cls or "").startswith("SWT_Window") and (title or "").startswith("Fakturama")
     ]
-    swt = [w for _, cls, w in candidates if (cls or "").startswith("SWT_Window")]
-    if swt:
-        return swt[0]
-    return candidates[0][2] if candidates else None
+    main = [w for title, w in candidates if title.startswith("Fakturama - ")]
+    if main:
+        return main[0]
+    return candidates[0][1] if candidates else None
 
 
 def _find_fakturama():

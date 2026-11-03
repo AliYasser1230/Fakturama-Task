@@ -104,6 +104,30 @@ def cmd_discover(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_probe(args: argparse.Namespace) -> int:
+    import time
+
+    from image_to_cash.errors import FlowStopped
+    from image_to_cash.settings import Settings
+    from image_to_cash.ui.app import Fakturama, format_probe
+
+    if sys.platform != "win32":
+        print("probe needs Windows (UI Automation is a Windows API).", file=sys.stderr)
+        return 2
+    try:
+        app = Fakturama.connect(Settings.from_env())
+    except FlowStopped as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    started = time.monotonic()
+    results = app.probe(args.screen)
+    print(f"Fakturama: {app.title!r} (pid {app.pid})")
+    print("\n".join(format_probe(results)) or "No screen from locators.yaml is open.")
+    found = sum(r.found for r in results)
+    print(f"\n{found}/{len(results)} controls found on the open screens in {time.monotonic() - started:.1f}s")
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     return _not_ready(5)
 
@@ -129,6 +153,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--list", action="store_true", help="List the screens and what to open for each.")
     p.add_argument("--no-ocr", action="store_true", help="Skip OCR of the screenshots (faster).")
     p.set_defaults(func=cmd_discover)
+
+    p = sub.add_parser("probe", help="Show which locators.yaml controls are found on the open Fakturama screens (Windows, read-only).")
+    p.add_argument("--screen", nargs="+", help="Only these screens from locators.yaml.")
+    p.set_defaults(func=cmd_probe)
 
     p = sub.add_parser("run", help="Run the full Order -> Invoice flow (Windows only).")
     src = p.add_mutually_exclusive_group(required=True)

@@ -139,6 +139,14 @@ Fakturama's windows to the front but never clicks or types. For every window it 
 control tree (`.tree.txt` / `.tree.json`), a screenshot (`.png`) and the OCR of that
 screenshot (`.ocr.json`). At the end it prints the path of a `.zip` with everything.
 
+To check `config/locators.yaml` against the Fakturama that is running now (read-only; it
+lists every control it finds on the screens that are open):
+
+```powershell
+.venv\Scripts\python main.py probe
+.venv\Scripts\python main.py probe --screen order_editor
+```
+
 ## Extracting the order data
 
 ```bash
@@ -179,7 +187,7 @@ Tesseract if installed.
 | 1 | Repo structure, dependencies, sample image | done |
 | 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done (Claude call tested with a fake client; first live call needs an API key) |
 | 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
-| 4 | UI helpers and `locators.yaml` | in progress: 4a done (`locators.yaml` with 113 controls, finder, tested against the recordings) |
+| 4 | UI helpers and `locators.yaml` | in progress: 4a locators and finder; 4b connect, waits and `probe` (tested live) |
 | 5 | Stage 1: open New Order | — |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | — |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |

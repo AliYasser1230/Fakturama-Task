@@ -16,6 +16,8 @@ class Settings:
     expected_currency: str = "EUR"
     ocr_language: str = "en"
     fakturama_exe: str | None = None
+    ui_timeout: float = 15.0
+    startup_timeout: float = 120.0
     runs_dir: Path = PROJECT_ROOT / "runs"
     locators_file: Path = PROJECT_ROOT / "config" / "locators.yaml"
 
@@ -29,4 +31,6 @@ class Settings:
             expected_currency=os.getenv("EXPECTED_CURRENCY") or defaults.expected_currency,
             ocr_language=os.getenv("OCR_LANGUAGE") or defaults.ocr_language,
             fakturama_exe=os.getenv("FAKTURAMA_EXE") or None,
+            ui_timeout=float(os.getenv("UI_TIMEOUT") or defaults.ui_timeout),
+            startup_timeout=float(os.getenv("STARTUP_TIMEOUT") or defaults.startup_timeout),
         )

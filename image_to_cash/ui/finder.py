@@ -129,15 +129,29 @@ def resolve(root: Node, loc: Locator) -> Node:
     return found[0]
 
 
+CONTAINERS = {"Window", "Tab"}
+
+
+def _search(root: Node, keep: Any) -> list[Node]:
+    found, stack = [], [root]
+    while stack:
+        current = stack.pop()
+        if current is not root and keep(current):
+            found.append(current)
+        if current is root or current.control_type not in CONTAINERS:
+            stack.extend(reversed(current.children()))
+    return found
+
+
 def scope_root(main: Node, scope: Scope) -> Node:
     if scope.window == "main":
         return main
     if scope.dialog is not None:
-        found = [n for n in preorder(main)
-                 if n.control_type == "Window" and n.visible and n.name == scope.dialog]
+        found = _search(main, lambda n: n.control_type == "Window" and n.visible and n.name == scope.dialog)
+    elif scope.menu is not None:
+        found = _search(main, lambda n: n.control_type == "Menu" and n.visible and n.name == scope.menu)
     else:
-        found = [n for n in preorder(main)
-                 if n.control_type == "Tab" and n.visible and re.fullmatch(scope.tab, n.name)]
+        found = _search(main, lambda n: n.control_type == "Tab" and n.visible and bool(re.fullmatch(scope.tab, n.name)))
     if len(found) != 1:
         raise ControlNotFound(f"{scope.describe()}: found {len(found)}")
     return found[0]
@@ -150,3 +164,57 @@ def locate(main: Node, locators: Locators, screen: str, control: str) -> Node:
         return resolve(root, locators.control(screen, control))
     except ControlNotFound as exc:
         raise ControlNotFound(f"{screen}.{control}: {exc}") from None
+
+
+class UiaNode:
+    def __init__(self, info: Any):
+        self.info = info
+        self._cache: dict[str, Any] = {}
+
+    def _get(self, key: str, read: Any, default: Any) -> Any:
+        if key not in self._cache:
+            try:
+                self._cache[key] = read()
+            except Exception:
+                self._cache[key] = default
+        return self._cache[key]
+
+    @property
+    def control_type(self) -> str:
+        return self._get("control_type", lambda: self.info.control_type or "", "")
+
+    @property
+    def name(self) -> str:
+        return self._get("name", lambda: self.info.name or "", "")
+
+    @property
+    def visible(self) -> bool:
+        return self._get("visible", lambda: bool(self.info.visible), False)
+
+    @property
+    def enabled(self) -> bool:
+        return self._get("enabled", lambda: bool(self.info.enabled), False)
+
+    @property
+    def rect(self) -> tuple[int, int, int, int] | None:
+        def read():
+            r = self.info.rectangle
+            return (r.left, r.top, r.right, r.bottom)
+        return self._get("rect", read, None)
+
+    @property
+    def value(self) -> str | None:
+        def read():
+            from pywinauto.uia_defines import get_elem_interface
+            return get_elem_interface(self.info.element, "Value").CurrentValue
+        return self._get("value", read, None)
+
+    def children(self) -> list["UiaNode"]:
+        return self._get("children", lambda: [UiaNode(c) for c in self.info.children()], [])
+
+    def wrapper(self) -> Any:
+        from pywinauto.controls.uiawrapper import UIAWrapper
+        return UIAWrapper(self.info)
+
+    def __repr__(self) -> str:
+        return f"<{self.control_type} {self.name!r} {self.rect}>"

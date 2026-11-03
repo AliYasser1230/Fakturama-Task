@@ -14,13 +14,13 @@ main:
     menu_data: {type: MenuItem, name: Data, within: {type: MenuBar, name: Application}}
 
 data_menu:
-  scope: {window: main}
+  scope: {menu: Data}
   controls:
-    documents: {type: MenuItem, name: Documents, within: {type: Menu, name: Data}}
-    products: {type: MenuItem, name: Products, within: {type: Menu, name: Data}}
-    debtors: {type: MenuItem, name: Debtors, within: {type: Menu, name: Data}}
-    payments: {type: MenuItem, name: terms of payment, within: {type: Menu, name: Data}}
-    vats: {type: MenuItem, name: VATs, within: {type: Menu, name: Data}}
+    documents: {type: MenuItem, name: Documents}
+    products: {type: MenuItem, name: Products}
+    debtors: {type: MenuItem, name: Debtors}
+    payments: {type: MenuItem, name: terms of payment}
+    vats: {type: MenuItem, name: VATs}
 
 order_editor:
   scope: {tab: '\*?New Order'}
@@ -133,6 +133,14 @@ products_list:
     delete: {type: Button, name: Delete the marked entry}
     search: {type: Edit, after: {name: "Search:"}}
     table: {type: Grid, columns: [Item No., Name, Description, Stock, Price, VAT]}
+
+vats_list:
+  scope: {tab: VATs}
+  controls:
+    create: {type: Button, name: Create a new tax rate}
+    delete: {type: Button, name: Delete the marked entry}
+    search: {type: Edit, after: {name: "Search:"}}
+    table: {type: Grid, columns: [Standard, Name, Description, Value]}
 
 documents_list:
   scope: {tab: Documents}

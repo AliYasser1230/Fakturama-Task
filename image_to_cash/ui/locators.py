@@ -71,11 +71,12 @@ class Scope(BaseModel):
     window: Literal["main"] | None = None
     dialog: str | None = None
     tab: str | None = None
+    menu: str | None = None
 
     @model_validator(mode="after")
     def _exactly_one(self) -> "Scope":
-        if sum(v is not None for v in (self.window, self.dialog, self.tab)) != 1:
-            raise ValueError("scope needs exactly one of: window, dialog, tab")
+        if sum(v is not None for v in (self.window, self.dialog, self.tab, self.menu)) != 1:
+            raise ValueError("scope needs exactly one of: window, dialog, tab, menu")
         if self.tab is not None:
             _check_regex(self.tab, "tab")
         return self
@@ -85,6 +86,8 @@ class Scope(BaseModel):
             return "main window"
         if self.dialog:
             return f"dialog {self.dialog!r}"
+        if self.menu:
+            return f"menu {self.menu!r}"
         return f"tab /{self.tab}/"
 
 
