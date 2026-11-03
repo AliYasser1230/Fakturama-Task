@@ -6,7 +6,8 @@
 
   What it does:
     1. Finds Python 3.11 64-bit (x64); installs it with winget if it is missing.
-    2. Creates .venv and installs requirements.txt.
+    2. Creates .venv and installs requirements.txt, plus Microsoft's Visual C++ runtime
+       if it is missing (pywinauto needs it).
     3. Runs the tests (including Windows OCR on the sample image).
     4. Waits until Fakturama is running, then starts "main.py discover".
 
@@ -57,6 +58,36 @@ if (-not (Test-Path $venvPython)) {
 }
 & $venvPython -m pip install --disable-pip-version-check -r requirements.txt
 if ($LASTEXITCODE -ne 0) { Fail "pip install failed (see the messages above)" }
+
+# pywinauto needs pywin32's win32ui, which needs Microsoft's Visual C++ runtime
+# (mfc140u.dll). A new Windows may not have it.
+function Test-Win32ui {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"   # a failed import writes to stderr; that is not fatal here
+    & $venvPython -c "import win32ui" *> $null
+    $ok = ($LASTEXITCODE -eq 0)
+    $ErrorActionPreference = $previous
+    return $ok
+}
+if (-not (Test-Win32ui)) {
+    Write-Host "Installing the Microsoft Visual C++ Redistributable (x64), needed by pywinauto."
+    Write-Host "Windows will ask for permission: click Yes."
+    $installer = Join-Path $env:TEMP "vc_redist.x64.exe"
+    $ProgressPreference = "SilentlyContinue"
+    Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile $installer -UseBasicParsing
+    $signature = Get-AuthenticodeSignature $installer
+    if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notlike "*O=Microsoft Corporation*") {
+        Fail "The downloaded Visual C++ installer is not signed by Microsoft; not running it."
+    }
+    try {
+        Start-Process $installer -ArgumentList "/install", "/quiet", "/norestart" -Verb RunAs -Wait
+    } catch {
+        Fail "The Visual C++ Redistributable was not installed (permission refused?). Run this script again and click Yes."
+    }
+    if (-not (Test-Win32ui)) {
+        Fail "pywin32 still cannot load win32ui. Install 'Microsoft Visual C++ Redistributable x64' from Microsoft, then run this script again."
+    }
+}
 
 # 3. Tests
 Step "3/4 Tests"

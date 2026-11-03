@@ -102,9 +102,10 @@ cp .env.example .env                            # then add your ANTHROPIC_API_KE
    ```
 
    It installs Python 3.11 x64 with winget if it is missing, creates `.venv`, installs
-   `requirements.txt` and runs the tests, including Windows OCR on the sample image. Then it
-   waits for Fakturama and starts the guided discovery (below). Use `-SkipDiscovery` to stop
-   after the tests.
+   `requirements.txt` and runs the tests, including Windows OCR on the sample image. If
+   Microsoft's Visual C++ Redistributable (x64) is missing, it installs that too: pywinauto
+   needs it, and a new Windows may not have it. Then it waits for Fakturama and starts the
+   guided discovery (below). Use `-SkipDiscovery` to stop after the tests.
 
    The same steps by hand:
 
@@ -117,7 +118,9 @@ cp .env.example .env                            # then add your ANTHROPIC_API_KE
    Use the **x64** Python 3.11 **on ARM Windows too**: some dependencies (e.g. PyYAML) have
    no ARM64 builds, and Windows runs x64 Python transparently. If the OCR test reports a
    missing language, run this in an administrator PowerShell:
-   `Add-WindowsCapability -Online -Name "Language.OCR~~~en-US~0.0.1.0"`.
+   `Add-WindowsCapability -Online -Name "Language.OCR~~~en-US~0.0.1.0"`. If importing
+   pywinauto fails with `DLL load failed while importing win32ui`, install the
+   [Visual C++ Redistributable x64](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
 ## Discovering Fakturama's controls (Windows)
 
@@ -153,7 +156,7 @@ never touched). The four steps:
 | Step | Module | What it does |
 |---|---|---|
 | A | `llm_extractor.py` | Claude transcribes the image into a fixed schema (structured output). It copies values verbatim and never calculates. |
-| B | `crosscheck.py` | Every critical value (reference, dates, SKUs, prices, totals, ZIPs, ...) must also appear in the OCR text, which catches invented values. |
+| B | `crosscheck.py` | Every critical value (reference, dates, SKUs, prices, totals, ZIPs, ...) must also appear in the OCR text, which catches invented values. Percentages allow for Windows OCR reading `%` as `96` or `0/0`. A discount or VAT rate OCR misses entirely is only a warning when OCR found the amounts that fix it, so step D's arithmetic proves it. |
 | C | `normalize.py` | Converts to typed values: ISO dates, `Decimal` amounts, known payment methods, first/last name. Ambiguous input (`03/04/2026`, `1,234`, a three-part name) is an error, not a guess. |
 | D | `validate.py` | Line totals, net, VAT and gross arithmetic; PAID needs a payment date; the currency must match Fakturama's. |
 
@@ -175,7 +178,7 @@ Tesseract if installed.
 |---|---|---|
 | 1 | Repo structure, dependencies, sample image | done |
 | 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done (Claude call tested with a fake client; first live call needs an API key) |
-| 3 | UIA discovery on Windows | tool done; recordings from a real Fakturama pending |
+| 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
 | 4 | UI helpers and `locators.yaml` | — |
 | 5 | Stage 1: open New Order | — |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | — |

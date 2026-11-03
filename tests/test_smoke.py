@@ -2,6 +2,7 @@
 
 import importlib
 import pkgutil
+import sys
 
 import pytest
 
@@ -29,3 +30,11 @@ def test_cli_help_exits_cleanly():
 
 def test_sample_image_present(sample_image):
     assert sample_image.is_file()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the UI driver runs on Windows only")
+def test_windows_ui_libraries_load():
+    # pywinauto needs pywin32's win32ui, which needs Microsoft's Visual C++ runtime
+    # (mfc140u.dll). A new Windows may not have it; scripts/windows_setup.ps1 installs it.
+    import pywinauto  # noqa: F401
+    import winocr  # noqa: F401
