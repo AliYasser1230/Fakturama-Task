@@ -55,6 +55,7 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │       ├── order.py              stage 1: open the New Order (task 1.3–1.8)
 │       ├── debtor.py             stage 2: find the Debtor in Select the address (2.1–2.4)
 │       ├── create_debtor.py      stage 2 creation branch: fill in a New Debtor (2.5–2.9)
+│       ├── payment_method.py     find or create the payment method, select it (2.10)
 │       ├── products.py           stage 3: find each Product in Select a product (3.1–3.3)
 │       └── matching.py           the exact-match rules for contacts and products
 ├── scripts/
@@ -173,12 +174,17 @@ it is. Built so far:
 - stage 3: search Select a product by SKU and select the one exact product (same Name),
   then check that its line appeared.
 
-When no contact matches, the run cancels the selector and fills in a New Debtor (task
-2.5–2.9): company, names, the billing address as Main address with the Invoice address
-role, a second address with the Delivery address role when billing and delivery differ,
-then alias, 0% discount and Net on Miscellaneous; every field is read back. It stops
-there (nothing saved yet): the payment method (2.10) and saving and reselecting the
-contact (2.11–2.13) are next. A missing product cancels Select a product and stops. The
+When no contact matches, the run cancels the selector and:
+
+1. finds the payment method in Data > terms of payment, or creates it (Name and
+   Description = the method, code from the task's mapping, 0 days, no texts, not standard),
+   checks every field, saves it once and checks what was stored (task 2.10.1–2.10.6);
+2. fills in a New Debtor (2.5–2.9): company, names, the billing address as Main address
+   with the Invoice address role, a second address with the Delivery address role when
+   billing and delivery differ, alias, 0% discount and Net; then selects the payment
+   method (2.10). Every field is read back.
+
+It stops there; the contact is not saved yet (2.11–2.13 are next). A missing product cancels Select a product and stops. The
 New Order is left open and unsaved.
 
 ## Live UI tests (Windows)
@@ -201,6 +207,8 @@ The tests:
 - run stage 1 for the sample order (from its validated JSON) and close the order unsaved.
 - search a contact and a product that do not exist; both selectors must be cancelled.
 - fill in a New Debtor for the sample order, check every field, and close it unsaved.
+- find the existing Bank Transfer payment method and select it on a New Debtor (skipped when
+  it does not exist yet: live tests never save).
 
 Nothing is saved.
 
@@ -271,6 +279,15 @@ Tesseract if installed.
   the company, so its additional name stays empty (task 2.7: only when supplied).
 - Only the active editor's content is in the UIA tree; a background editor is just a tab.
   The tool tells "open" (a tab exists) from "active" and brings the right tab to the front.
+- The contact's Payment list is filled when the contact editor opens; a payment method
+  saved while a New Debtor is open is not offered there. So the tool resolves the payment
+  method (task 2.10.1–2.10.6) **before** opening New Contact (2.5), then selects it (2.10):
+  same result as the task's order, which does not work in 2.2.0.
+- The contact's Payment list shows a payment method's Description (`Pay Cash`), not its
+  Name (`Cash`); the task sets both to the method name, so both match.
+- Setting UIA focus on a field in an inactive list panel does not move the keyboard focus.
+  Before typing, the tool checks that the field really has the keyboard focus (clicking
+  into it if needed) and refuses to type otherwise.
 - Editors are closed with File > Close after clicking their tab (Ctrl+W is swallowed when a
   dropdown has the focus). Menu entries carry their shortcut when an editor is active
   (`Close\tCtrl+W`), so menu locators accept that suffix.
@@ -286,6 +303,6 @@ Tesseract if installed.
 | 5 | Stage 1: open New Order | done: `main.py run` runs it from the image or JSON; live-tested |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | selection and exact-match rules done (live: not-found path); selecting real records and editing item lines are tested in step 8 |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |
-| 8 | Create missing Debtor, Payment Method, VAT, Product | in progress: part 1 (fill in the New Debtor, 2.5–2.9) done and live-tested |
+| 8 | Create missing Debtor, Payment Method, VAT, Product | in progress: parts 1–2 done and live-tested (New Debtor filled in; Bank Transfer created, saved and selected) |
 | 9 | Run report and manual-review stops | — |
 | 10 | README, screenshots / recording, written answers | — |

@@ -70,10 +70,13 @@ def test_conflicting_contact_cancels_and_asks_for_review(order):
 
 def test_unknown_contact_cancels_the_selector_and_fills_in_a_new_contact(order):
     app = _address_app([])
-    with pytest.raises(NotBuiltYet, match=r"new contact CUST000001 is filled in .* payment method \(2\.10\)"):
+    with pytest.raises(NotBuiltYet, match=r"new contact CUST000001 is filled in with payment 'Bank Transfer'"):
         select_debtor(_ready(app, order))
     cancel = app.calls.index(("click", "select_address", "cancel"))
-    assert app.calls[cancel + 1] == ("click", "main", "nav_new_contact")
+    saved = app.calls.index(("save", "payment_editor", "Bank Transfer"))
+    new_contact = app.calls.index(("click", "main", "nav_new_contact"))
+    assert cancel < saved < new_contact
+    assert app.values[("debtor_editor", "payment")] == "Bank Transfer"
     assert "order_editor" in app.open and "debtor_editor" in app.open
 
 

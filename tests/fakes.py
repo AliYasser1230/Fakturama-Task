@@ -13,6 +13,11 @@ NEW_DEBTOR = {"customer_id": "CUST000001", "company": "", "salutation": "---", "
 ADDRESS_CONTROLS = {"additional_name", "street", "address_specification", "district", "zip", "city", "country",
                     "email", "phone", "mobile", "address_type"}
 ROLE_NAMES = {"invoice": "Invoice address", "delivery": "Delivery address"}
+PAYMENT_COLUMNS = ("Standard", "Name", "Description", "Discount", "Disc. Days", "Net Days")
+NEW_PAYMENT = {"name": "", "description": "", "account": "", "payment_code": "Mutually defined ", "cash_discount": "0%",
+               "discount_days": "0", "net_days": "0", "text_unpaid": "", "text_deposit": "", "text_paid": "",
+               "standard": "Cash"}
+MENU_ITEMS = {("data_menu", "payments"): "payments_list"}
 
 
 def grid(columns, *rows):
@@ -21,7 +26,8 @@ def grid(columns, *rows):
 
 
 class FakeApp:
-    def __init__(self, *, open_screens=(), new_order=None, after=None, tables=None, on_ok=None, present=()):
+    def __init__(self, *, open_screens=(), new_order=None, after=None, tables=None, on_ok=None, present=(),
+                 payment_options=("Pay Cash",)):
         self.open = set(open_screens)
         self.values = {}
         self.calls = []
@@ -32,6 +38,9 @@ class FakeApp:
         self.present = set(present)
         self.address_tab = "main"
         self.roles = {}
+        self.payment_options = list(payment_options)
+        self.saved = []
+        self.tables.setdefault(("payments_list", "table"), grid(PAYMENT_COLUMNS, ("", "Cash", "Pay Cash", "0%", "0", "0")))
 
     def is_open(self, screen, title=None):
         return screen in self.open
@@ -99,6 +108,14 @@ class FakeApp:
             self.open.add("address_roles")
             shown = self.values[self._key("debtor_editor", "address_type")]
             self.roles = {k: name in shown for k, name in ROLE_NAMES.items()}
+        elif (screen, control) == ("main", "menu_data"):
+            self.open.add("data_menu")
+        elif (screen, control) in MENU_ITEMS:
+            self.open.discard(screen)
+            self.open.add(MENU_ITEMS[(screen, control)])
+        elif (screen, control) == ("payments_list", "create"):
+            self.open.add("payment_editor")
+            self.values.update({("payment_editor", k): v for k, v in NEW_PAYMENT.items()})
         elif (screen, control) in OPENS:
             self.open.add(OPENS[(screen, control)])
         elif control in ("ok", "cancel"):
@@ -163,3 +180,18 @@ class FakeApp:
             shown = ", ".join(ROLE_NAMES[k] for k in ("invoice", "delivery") if self.roles.get(k))
             self.values[self._key("debtor_editor", "address_type")] = shown
         self._done("press", keys)
+
+    def click_when(self, screen, control, title=None, timeout=None):
+        self.click(screen, control, title)
+
+    def options(self, screen, control, title=None):
+        if (screen, control) == ("debtor_editor", "payment"):
+            return list(self.payment_options)
+        return []
+
+    def save(self, screen, title=None, *, saved_title=None, timeout=None):
+        self.saved.append((screen, saved_title))
+        if screen == "payment_editor":
+            self.payment_options.append(self.values[("payment_editor", "description")])
+        self._done("save", screen, saved_title)
+        return saved_title

@@ -4,6 +4,7 @@ from image_to_cash.errors import ManualReviewRequired, NotBuiltYet
 from image_to_cash.extract.schema import OrderData
 from image_to_cash.flow.create_debtor import debtor_checks, fill_new_debtor
 from image_to_cash.flow.matching import CREATE, REVIEW, SELECT, Decision, address_parts, decide_debtor, text_contains
+from image_to_cash.flow.payment_method import ensure_payment_method, select_payment
 from image_to_cash.flow.runner import Check, RunContext, StageResult, gate
 
 EDITOR = "order_editor"
@@ -66,8 +67,12 @@ def select_debtor(ctx: RunContext) -> StageResult:
     if decision.action == REVIEW:
         raise ManualReviewRequired(decision.reason)
     assert decision.action == CREATE
+    payment = ensure_payment_method(app, order.payment.method)
     customer_id = fill_new_debtor(app, order)
-    filled = gate(*STAGE, debtor_checks(app, order, customer_id), notes=[decision.reason])
-    raise NotBuiltYet(f"{decision.reason}; new contact {customer_id} is filled in (task 2.5-2.9) but not saved: "
-                      f"the payment method (2.10) and saving and reselecting it (2.11-2.13) come next in step 8",
-                      filled)
+    filled = debtor_checks(app, order, customer_id) + [select_payment(app, order.payment.method)]
+    done = gate(*STAGE, payment + filled, notes=[decision.reason,
+                "payment method resolved before New Contact: Fakturama 2.2.0 fills the contact's Payment "
+                "list when the contact editor opens"])
+    raise NotBuiltYet(f"{decision.reason}; new contact {customer_id} is filled in with payment "
+                      f"{order.payment.method.value!r} (task 2.5-2.10) but not saved: saving and reselecting it "
+                      f"(2.11-2.13) come next in step 8", done)

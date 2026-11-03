@@ -110,10 +110,19 @@ address_roles:
     invoice: {type: CheckBox, name: Invoice address}
     delivery: {type: CheckBox, name: Delivery address}
 
+payments_list:
+  scope: {tab: terms of payment}
+  controls:
+    create: {type: Button, name: Create a new term of payment}
+    delete: {type: Button, name: Delete the marked entry}
+    search: {type: Edit, after: {name: "Search:"}}
+    table: {type: Grid, columns: [Standard, Name, Description, Discount, Disc. Days, Net Days]}
+
 payment_editor:
   scope: {tab: '\*?New Term of Payment'}
   controls:
     name: {type: Edit, name: Name}
+    account: {type: ComboBox, name: Account}
     description: {type: Edit, name: Description}
     payment_code: {type: ComboBox, name_re: '(?i)!?editorPaymentPaymentcode!?|payment ?code'}
     cash_discount: {type: Edit, name: Cash discount}
@@ -122,6 +131,8 @@ payment_editor:
     text_unpaid: {type: Edit, name: "Text 'unpaid'"}
     text_deposit: {type: Edit, name: "Text 'deposit'"}
     text_paid: {type: Edit, name: "Text 'paid'"}
+    standard: {type: Edit, after: {name: Standard}}
+    set_as_standard: {type: Button, name: Set as standard}
 
 vat_editor:
   scope: {tab: '\*?New TAX Rate'}

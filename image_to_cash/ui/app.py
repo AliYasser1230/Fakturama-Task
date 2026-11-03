@@ -185,6 +185,40 @@ class Fakturama:
     def click(self, screen: str, control: str, title: str | None = None) -> None:
         actions.click(self.find(screen, control, title))
 
+    def click_when(self, screen: str, control: str, title: str | None = None, timeout: float | None = None) -> None:
+        actions.click(self.wait_for(screen, control, timeout, title))
+
+    def options(self, screen: str, control: str, title: str | None = None) -> list[str]:
+        return actions.combo_options(self.find(screen, control, title))
+
+    def save(self, screen: str, title: str | None = None, *, saved_title: str | None = None,
+             timeout: float | None = None) -> str:
+        timeout = timeout or self.settings.ui_timeout
+        tab = self.activate(screen, title=title)
+        before = tab.name
+        item = next((c for c in tab.children() if c.control_type == "TabItem" and c.name == before), None)
+        if item is None:
+            raise ControlNotFound(f"no tab named {before!r} to save")
+        self.bring_to_front()
+        actions.ensure_foreground(item)
+        item.wrapper().click_input()
+        wait_until(lambda: self.find("main", "save").enabled, timeout=5, what="the toolbar Save button to be enabled")
+        actions.click(self.find("main", "save"))
+        names = {saved_title, actions.editor_title(before)} - {None}
+
+        def saved_or_asked():
+            tabs = {n.name for n in preorder(self.root()) if n.control_type == "TabItem"}
+            for name in names:
+                if name in tabs and f"*{name}" not in tabs:
+                    return name
+            dialogs = actions.open_dialogs(self.root())
+            return dialogs[0] if dialogs else None
+
+        outcome = wait_until(saved_or_asked, timeout=timeout, what=f"{before!r} to be saved")
+        if isinstance(outcome, str):
+            return outcome
+        raise ManualReviewRequired(f"Fakturama showed a dialog while saving {before!r}: {actions.dialog_info(outcome)}")
+
     def type(self, screen: str, control: str, text: str, *, check: Any = None, commit: str = "{TAB}",
              title: str | None = None) -> str:
         return actions.set_text(self.find(screen, control, title), text, check=check, commit=commit)

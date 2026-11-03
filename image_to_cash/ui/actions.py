@@ -135,6 +135,28 @@ def ensure_foreground(node: UiaNode) -> None:
         raise VerificationFailed("Fakturama is not the window in front; not typing into another program")
 
 
+def has_focus(node: UiaNode) -> bool:
+    try:
+        return bool(node.info.element.CurrentHasKeyboardFocus)
+    except Exception:
+        return False
+
+
+def focus(node: UiaNode, *, timeout: float = 2.0) -> None:
+    node.wrapper().set_focus()
+    ensure_foreground(node)
+    try:
+        wait_until(lambda: has_focus(node), timeout=timeout / 2, what=f"{node} to have the keyboard focus")
+        return
+    except Exception:
+        pass
+    node.wrapper().click_input()
+    try:
+        wait_until(lambda: has_focus(node), timeout=timeout, what=f"{node} to have the keyboard focus")
+    except Exception:
+        raise VerificationFailed(f"could not put the cursor into {node}; not typing") from None
+
+
 def send_keys(keys: str) -> None:
     from pywinauto.keyboard import send_keys as _send
 
@@ -162,8 +184,7 @@ def set_text(
     if not node.enabled:
         raise VerificationFailed(f"{node} is disabled")
     check = check or exactly(text)
-    node.wrapper().set_focus()
-    ensure_foreground(node)
+    focus(node)
     send_keys("^a" + (escape_keys(text) if text else "{DEL}") + commit)
     shown: list[str] = [""]
 
@@ -184,6 +205,18 @@ def list_items(combo: UiaNode) -> list[UiaNode]:
         if child.control_type == "List":
             items += [c for c in child.children() if c.control_type == "ListItem"]
     return items
+
+
+def combo_options(combo: UiaNode, *, timeout: float = 5.0) -> list[str]:
+    opener = [c for c in fresh(combo).children() if c.control_type == "Button" and c.name == "Open"]
+    if not opener:
+        raise ControlNotFound(f"{combo} has no dropdown button")
+    ensure_foreground(combo)
+    opener[0].wrapper().click_input()
+    items = wait_until(lambda: list_items(combo), timeout=timeout, what=f"the options of {combo}")
+    names = [i.name for i in items]
+    send_keys("{ESC}")
+    return names
 
 
 def select_option(combo: UiaNode, option: str, *, timeout: float = 5.0) -> str:
@@ -216,8 +249,7 @@ def set_date(node: UiaNode, value: date, *, timeout: float = 5.0) -> str:
     if not node.enabled:
         raise VerificationFailed(f"{node} is disabled")
     keys = date_keys(read_value(node), value)
-    node.wrapper().set_focus()
-    ensure_foreground(node)
+    focus(node)
     send_keys(keys)
     try:
         wait_until(lambda: parse_display_date(read_value(node)) == value, timeout=timeout, what=f"{node} to show {value}")
