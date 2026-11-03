@@ -1,0 +1,24 @@
+# Locator registry: every Fakturama control the flow touches is declared here, once.
+# If Fakturama's UI changes, this is the only file to update.
+#
+# Filled in during plan step 4, from the UIA dumps produced by `python main.py discover`.
+# Names are taken from the real UI, not guessed.
+#
+# Entry format (one of `uia`, `label` or `ocr`; later ones are fallbacks):
+#
+#   cust_ref:
+#     scope: order_editor              # where to search: main | <editor> | <dialog>
+#     uia: {name: "Cust.Ref.", control_type: Edit}
+#     label: "Cust.Ref."               # or: the editable control next to this label
+#     ocr: "Cust.Ref."                 # last resort: text found in a window screenshot
+
+main: {}             # main window, toolbar, menus, left navigation panels
+order_editor: {}     # New Order editor (spec 1, 2, 3, 4)
+select_address: {}   # "Select the address" dialog (spec 2.2-2.3)
+debtor_editor: {}    # New Debtor editor (spec 2.5-2.11)
+payment_editor: {}   # terms of payment list and editor (spec 2.10)
+vat_editor: {}       # VATs list and editor (spec 3.4-3.6)
+select_product: {}   # "Select a product" dialog (spec 3.3)
+product_editor: {}   # New product editor (spec 3.7-3.11)
+documents: {}        # Data > Documents list (spec 4.5, 5.5)
+invoice_editor: {}   # linked Invoice editor (spec 5)

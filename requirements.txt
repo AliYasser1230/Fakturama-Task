@@ -1,0 +1,19 @@
+# Install with:  pip install -r requirements.txt
+# One file for every OS: Windows-only packages are skipped elsewhere by their markers.
+
+# Extraction, validation, reporting (any OS)
+anthropic>=2.4
+pydantic>=2.7
+PyYAML>=6.0
+Pillow>=10.0
+python-dotenv>=1.0
+
+# Tests
+pytest>=8.0
+
+# Fakturama UI automation and built-in Windows OCR (Windows only)
+pywinauto>=0.6.9; sys_platform == "win32"
+winocr>=0.0.15; sys_platform == "win32"
+
+# Apple Vision OCR, so extraction can be developed and tested on a Mac (macOS only)
+pyobjc-framework-Vision>=10; sys_platform == "darwin"
