@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -70,27 +71,39 @@ class RunResult:
     reason: str | None = None
     stage_result: StageResult | None = None
     not_built: list[Stage] = field(default_factory=list)
+    trace: str | None = None
 
     @property
     def ok(self) -> bool:
         return self.stopped_at is None
 
 
-def run_flow(ctx: RunContext, stages: list[Stage]) -> RunResult:
+def run_flow(ctx: RunContext, stages: list[Stage],
+             after_stage: Callable[[Stage, str], None] | None = None) -> RunResult:
+    def stopped(stage: Stage, kind: str, reason: str, result: StageResult | None = None,
+                trace: str | None = None) -> RunResult:
+        if after_stage is not None:
+            after_stage(stage, kind)
+        return RunResult(ctx.results, stage, kind, reason, result, trace=trace)
+
     for index, stage in enumerate(stages):
         if stage.run is None:
             return RunResult(ctx.results, not_built=[s for s in stages[index:] if s.run is None])
         try:
             result = stage.run(ctx)
         except GateFailed as exc:
-            return RunResult(ctx.results, stage, "check failed", str(exc), exc.result)
+            return stopped(stage, "check failed", str(exc), exc.result)
         except ManualReviewRequired as exc:
-            return RunResult(ctx.results, stage, "manual review", str(exc))
+            return stopped(stage, "manual review", str(exc))
         except NotBuiltYet as exc:
-            return RunResult(ctx.results, stage, "not built yet", str(exc), exc.result)
+            return stopped(stage, "not built yet", str(exc), exc.result)
         except FlowStopped as exc:
-            return RunResult(ctx.results, stage, "stopped", str(exc))
+            return stopped(stage, "stopped", str(exc))
+        except Exception as exc:
+            return stopped(stage, "error", f"{type(exc).__name__}: {exc}", trace=traceback.format_exc())
         ctx.results.append(result)
+        if after_stage is not None:
+            after_stage(stage, "passed")
     return RunResult(ctx.results)
 
 

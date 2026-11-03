@@ -40,6 +40,9 @@ def find_ready_main_window() -> Any | None:
     return window if window is not None and has_menu_bar(window) else None
 
 
+START_PAGE = "Fakturama"
+
+
 @dataclass(frozen=True)
 class ProbeResult:
     screen: str
@@ -138,6 +141,19 @@ class Fakturama:
             return []
         return [n for n in preorder(self.root())
                 if n.control_type == "TabItem" and n.visible and re.fullmatch(scope.tab, n.name)]
+
+    def editor_tab_names(self) -> list[str]:
+        for tab in preorder(self.root()):
+            if tab.control_type != "Tab":
+                continue
+            names = [c.name for c in tab.children() if c.control_type == "TabItem"]
+            if START_PAGE in names:
+                return [n for n in names if n != START_PAGE]
+        return []
+
+    def screenshot(self, path: str | Path) -> None:
+        self.bring_to_front()
+        self.window.capture_as_image().save(str(path))
 
     def editor_open(self, screen: str, title: str | None = None) -> bool:
         return self.is_open(screen, title) or bool(self.editor_tabs(screen, title))

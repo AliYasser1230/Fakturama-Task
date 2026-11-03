@@ -129,27 +129,30 @@ def _load_order(args: argparse.Namespace, settings):
 
     try:
         if args.from_json:
-            return load_order_json(args.from_json, settings=settings), []
+            return load_order_json(args.from_json, settings=settings), [], {"source": f"order JSON {args.from_json}"}
         raw = load_raw_json(args.raw) if args.raw else None
         result = extract_order(args.image, settings=settings, raw=raw)
-        return result.order, result.issues
+        info = {"source": result.source, "image": str(args.image), "ocr_engine": result.ocr_engine,
+                "issues": [i.to_dict() for i in result.issues]}
+        return result.order, result.issues, info
     except ExtractionRejected as exc:
         for issue in exc.issues:
             print(f"  {issue}", file=sys.stderr)
         print("REJECTED: fix the image or the data above; Fakturama was not touched.", file=sys.stderr)
-        return None, []
+        return None, [], {}
     except Exception as exc:
         message = _api_error_message(exc)
         if message is None:
             raise
         print(message, file=sys.stderr)
-        return None, []
+        return None, [], {}
 
 
 def cmd_run(args: argparse.Namespace) -> int:
     from image_to_cash.errors import FlowStopped
-    from image_to_cash.flow.runner import RunContext, format_run, run_flow
+    from image_to_cash.flow.runner import RunContext, RunResult, Stage, format_run, run_flow
     from image_to_cash.flow.stages import STAGES
+    from image_to_cash.report.run_report import RunReport
     from image_to_cash.settings import Settings
     from image_to_cash.ui.app import Fakturama
 
@@ -161,7 +164,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
 
     settings = Settings.from_env()
-    order, issues = _load_order(args, settings)
+    order, issues, extraction = _load_order(args, settings)
     if order is None:
         return 1
     for issue in issues:
@@ -170,23 +173,34 @@ def cmd_run(args: argparse.Namespace) -> int:
           f"gross {order.totals.gross} {order.currency}, {order.payment.method.value} {order.payment.paid_status}",
           flush=True)
 
+    report = RunReport(settings.runs_dir, order, extraction=extraction)
     try:
         app = Fakturama.connect(settings)
     except FlowStopped as exc:
+        result = RunResult([], Stage("0", "Connect to Fakturama", None), "stopped", str(exc))
+        folder = report.finish(result)
         print(exc, file=sys.stderr)
+        print(f"Report: {folder / 'report.md'}", file=sys.stderr)
         return 1
+    report.capture_fn = app.screenshot
     app.bring_to_front()
     app.maximize()
-    result = run_flow(RunContext(order=order, app=app, settings=settings), STAGES)
+    report.capture("start")
+    result = run_flow(RunContext(order=order, app=app, settings=settings), STAGES, after_stage=report.after_stage)
+    folder = report.finish(result, fakturama={"title": app.title, "pid": app.pid}, open_editors=app.editor_tab_names())
     print("\n".join(format_run(result)), flush=True)
-    if not result.ok:
-        print("\nSTOPPED. Fakturama was left as it is, so you can look at it.", file=sys.stderr)
+    print(f"\nReport: {folder / 'report.md'}", flush=True)
+    if not result.ok and result.kind != "not built yet":
+        if result.trace:
+            print(result.trace, file=sys.stderr)
+        print(f"STOPPED for manual review ({result.kind}): see {folder / 'manual_review.json'}. "
+              f"Fakturama was left as it is.", file=sys.stderr)
         return 1
-    if result.not_built:
-        print("\nThe New Order stays open and unsaved in Fakturama.")
-    return 0
-
-
+    if result.ok and not result.not_built:
+        print("Completed.")
+        return 0
+    print("Stopped where the flow is not built yet; Fakturama was left as it is (unsaved editors stay open).")
+    return 3
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="main.py",

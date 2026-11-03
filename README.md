@@ -49,15 +49,17 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   │   ├── waits.py              wait for a state or a stable value, not for time
 │   │   ├── grid_ocr.py           reads Fakturama's custom-drawn tables with OCR
 │   │   └── discover.py           records the UIA tree of each screen
-│   └── flow/                     the task's Order-first flow
-│       ├── runner.py             checks, stage gates, run in order, stop at the first failure
-│       ├── stages.py             the five stages of the task (built ones and pending ones)
-│       ├── order.py              stage 1: open the New Order (task 1.3–1.8)
-│       ├── debtor.py             stage 2: find the Debtor in Select the address (2.1–2.4)
-│       ├── create_debtor.py      stage 2 creation branch: fill in a New Debtor (2.5–2.9)
-│       ├── payment_method.py     find or create the payment method, select it (2.10)
-│       ├── products.py           stage 3: find each Product in Select a product (3.1–3.3)
-│       └── matching.py           the exact-match rules for contacts and products
+│   ├── flow/                     the task's Order-first flow
+│   │   ├── runner.py             checks, stage gates, run in order, stop at the first failure
+│   │   ├── stages.py             the five stages of the task (built ones and pending ones)
+│   │   ├── order.py              stage 1: open the New Order (task 1.3–1.8)
+│   │   ├── debtor.py             stage 2: find the Debtor in Select the address (2.1–2.4)
+│   │   ├── create_debtor.py      stage 2 creation branch: fill in a New Debtor (2.5–2.9)
+│   │   ├── payment_method.py     find or create the payment method, select it (2.10)
+│   │   ├── products.py           stage 3: find each Product in Select a product (3.1–3.3)
+│   │   └── matching.py           exact-match rules for contacts, products, payment methods
+│   └── report/
+│       └── run_report.py         runs/<time>-<reference>/: report, screenshots, manual review
 ├── scripts/
 │   └── windows_setup.ps1         one-command Windows setup + guided discovery
 ├── samples/                      the supplied order image, its hand-checked transcription
@@ -69,8 +71,8 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 └── docs/screenshots/             annotated screenshots of a run
 ```
 
-Modules for the creation branches, the Invoice and the run report are added as they are
-built (see [Progress](#progress)).
+Modules for the remaining creation branches and the Invoice are added as they are built
+(see [Progress](#progress)).
 
 ## Development setup
 
@@ -186,6 +188,23 @@ When no contact matches, the run cancels the selector and:
 
 It stops there; the contact is not saved yet (2.11–2.13 are next). A missing product cancels Select a product and stops. The
 New Order is left open and unsaved.
+
+### Run report and manual review
+
+Every run writes `runs/<date-time>-<reference>/`:
+
+| File | Content |
+|---|---|
+| `report.md` | readable summary: order, outcome, every check of every stage, screenshot links |
+| `report.json` | the same as data, plus the extraction source and warnings |
+| `order.json` | the validated order the run used |
+| `screenshots/` | Fakturama at the start and after each stage (and where it stopped) |
+| `manual_review.json` | only when the run stopped for a person: stage, reason, failed checks, editors left open (unsaved ones marked `*`), the last screenshot and what to do next |
+
+The run never guesses: an ambiguous or conflicting match, a value Fakturama shows
+differently from the order, or an unexpected error stops it and leaves Fakturama as it
+is. Exit codes: `0` completed, `1` stopped for manual review (or the order was rejected),
+`2` wrong platform or options, `3` stopped where the flow is not built yet.
 
 ## Live UI tests (Windows)
 
@@ -304,5 +323,5 @@ Tesseract if installed.
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | selection and exact-match rules done (live: not-found path); selecting real records and editing item lines are tested in step 8 |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |
 | 8 | Create missing Debtor, Payment Method, VAT, Product | in progress: parts 1–2 done and live-tested (New Debtor filled in; Bank Transfer created, saved and selected) |
-| 9 | Run report and manual-review stops | — |
+| 9 | Run report and manual-review stops | done: report folder with checks and screenshots per stage, `manual_review.json` on every stop; live-tested |
 | 10 | README, screenshots / recording, written answers | — |
