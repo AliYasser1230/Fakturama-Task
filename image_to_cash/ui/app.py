@@ -10,9 +10,11 @@ from typing import Any
 
 from image_to_cash.errors import ControlNotFound, FlowStopped, ManualReviewRequired
 from image_to_cash.settings import Settings
+from image_to_cash.ui import actions
 from image_to_cash.ui.finder import Node, UiaNode, locate, resolve, scope_root
 from image_to_cash.ui.locators import Locators, Scope, load_locators
-from image_to_cash.ui.waits import wait_until
+from image_to_cash.ui.grid_ocr import Grid, GridRow, click_row, read_grid
+from image_to_cash.ui.waits import wait_stable, wait_until
 
 
 def find_main_window() -> Any | None:
@@ -156,9 +158,52 @@ class Fakturama:
     def probe(self, screens: list[str] | None = None) -> list[ProbeResult]:
         return probe_tree(self.root(), self.locators, screens)
 
-    def close_editor(self, screen: str, timeout: float | None = None, title: str | None = None) -> None:
-        from image_to_cash.ui import actions
+    def read(self, screen: str, control: str, title: str | None = None) -> str:
+        return actions.read_value(self.find(screen, control, title))
 
+    def click(self, screen: str, control: str, title: str | None = None) -> None:
+        actions.click(self.find(screen, control, title))
+
+    def type(self, screen: str, control: str, text: str, *, check: Any = None, commit: str = "{TAB}",
+             title: str | None = None) -> str:
+        return actions.set_text(self.find(screen, control, title), text, check=check, commit=commit)
+
+    def exists(self, screen: str, control: str, title: str | None = None) -> bool:
+        try:
+            self.find(screen, control, title)
+            return True
+        except ControlNotFound:
+            return False
+
+    def read_table(self, screen: str, control: str, title: str | None = None) -> Grid:
+        columns = self.locators.control(screen, control).columns
+        return read_grid(self.find(screen, control, title), columns, lang=self.settings.ocr_language)
+
+    def read_table_stable(self, screen: str, control: str, title: str | None = None,
+                          timeout: float | None = None) -> Grid:
+        last: dict[str, Grid] = {}
+
+        def read():
+            last["grid"] = self.read_table(screen, control, title)
+            return last["grid"].signature()
+
+        wait_stable(read, timeout=timeout or self.settings.ui_timeout, what=f"{screen}.{control}", settle=1.0)
+        return last["grid"]
+
+    def click_row(self, row: GridRow, *, double: bool = False) -> None:
+        self.bring_to_front()
+        click_row(row, double=double)
+
+    def set_date(self, screen: str, control: str, value: Any, title: str | None = None) -> str:
+        return actions.set_date(self.find(screen, control, title), value)
+
+    def choose(self, screen: str, control: str, option: str, title: str | None = None) -> str:
+        return actions.select_option(self.find(screen, control, title), option)
+
+    def tick(self, screen: str, control: str, checked: bool, title: str | None = None) -> None:
+        actions.set_checkbox(self.find(screen, control, title), checked)
+
+    def close_editor(self, screen: str, timeout: float | None = None, title: str | None = None) -> None:
         timeout = timeout or self.settings.ui_timeout
         tab = self.wait_open(screen, title=title)
         tab_title = tab.name

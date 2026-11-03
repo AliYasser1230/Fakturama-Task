@@ -34,6 +34,9 @@ order_editor:
     select_address: {type: Image, after: {name: Addresses}, index: 1}
     new_address: {type: Image, after: {name: Addresses}, index: 2}
     address: {type: Edit, within: {type: Tab, name: Invoice address}}
+    tab_invoice_address: {type: TabItem, name: Invoice address}
+    tab_delivery_address: {type: TabItem, name: Delivery address}
+    delivery_address: {type: Edit, within: {type: Tab, name: Delivery address}}
     select_product: {type: Image, after: {name: Items}, index: 1}
     add_item: {type: Image, after: {name: Items}, index: 2}
     delete_item: {type: Image, after: {name: Items}, index: 3}

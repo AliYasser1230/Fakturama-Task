@@ -28,7 +28,7 @@ def test_probe_reports_only_the_open_screens(locators):
     assert {"main", "order_editor"} <= screens
     assert "select_address" not in screens and "invoice_editor" not in screens
     order = [r for r in results if r.screen == "order_editor"]
-    assert all(r.found for r in order)
+    assert {r.control for r in order if not r.found} == {"tab_delivery_address", "delivery_address"}
     number = next(r for r in order if r.control == "number")
     assert "value='PO000001'" in number.detail
 

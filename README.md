@@ -26,9 +26,9 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 
 ```
 .
-├── main.py                       CLI: extract | discover | run
+├── main.py                       CLI: extract | discover | probe | run
 ├── config/
-│   └── locators.yaml             every UI control declared once (UIA / label / OCR)
+│   └── locators.yaml             every Fakturama control, found by name, label or container
 ├── image_to_cash/
 │   ├── settings.py               model, timeouts, paths (from .env)
 │   ├── errors.py                 ExtractionRejected, ManualReviewRequired, ...
@@ -42,36 +42,33 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   │   ├── validate.py           line, net, VAT and gross arithmetic; required fields
 │   │   └── pipeline.py           runs the steps above; also loads a saved JSON
 │   ├── ui/                       Fakturama driver (Windows; pywinauto imported lazily)
-│   │   ├── app.py                connect to / start Fakturama
-│   │   ├── locators.py           loads config/locators.yaml
-│   │   ├── finder.py             find by name+type, by label, or by OCR
-│   │   ├── actions.py            click / set / select / toggle, each read back
-│   │   ├── waits.py              wait for state, not time
-│   │   ├── grid_ocr.py           reads custom-drawn tables via OCR
-│   │   └── discover.py           dumps the UIA tree to build locators.yaml
-│   ├── flow/                     the spec's Order-first flow, one module per stage
-│   │   ├── stage1_open_order.py  spec 1.3–1.8
-│   │   ├── stage2_debtor.py      spec 2.1–2.13
-│   │   ├── payment_method.py     spec 2.10.x
-│   │   ├── stage3_products.py    spec 3.1–3.17
-│   │   ├── vat.py                spec 3.4–3.6
-│   │   ├── stage4_save_order.py  spec 4.1–4.7
-│   │   ├── stage5_invoice.py     spec 5.1–5.7
-│   │   ├── documents.py          Data > Documents checks (4.5, 5.5)
-│   │   ├── matching.py           exact-match rules (pure functions)
-│   │   ├── context.py            state shared across stages
-│   │   └── runner.py             runs stages 1–5, stops at the first failed gate
-│   └── report/
-│       └── run_report.py         runs/<timestamp>/report.json, screenshots, manual_review.json
+│   │   ├── app.py                connect to / start Fakturama, find controls, screen-level actions
+│   │   ├── locators.py           loads and validates config/locators.yaml
+│   │   ├── finder.py             resolves a locator in a control tree (live or recorded)
+│   │   ├── actions.py            click / type / date / dropdown / checkbox, each read back
+│   │   ├── waits.py              wait for a state or a stable value, not for time
+│   │   ├── grid_ocr.py           reads Fakturama's custom-drawn tables with OCR
+│   │   └── discover.py           records the UIA tree of each screen
+│   └── flow/                     the task's Order-first flow
+│       ├── runner.py             checks, stage gates, run in order, stop at the first failure
+│       ├── stages.py             the five stages of the task (built ones and pending ones)
+│       ├── order.py              stage 1: open the New Order (task 1.3–1.8)
+│       ├── debtor.py             stage 2: find the Debtor in Select the address (2.1–2.4)
+│       ├── products.py           stage 3: find each Product in Select a product (3.1–3.3)
+│       └── matching.py           the exact-match rules for contacts and products
 ├── scripts/
 │   └── windows_setup.ps1         one-command Windows setup + guided discovery
 ├── samples/                      the supplied order image, its hand-checked transcription
 │                                 (*.raw.json) and the expected validated order (*.expected.json)
 ├── tests/                        unit tests (run on any OS)
 │   ├── fixtures/uia/             slim copies of the recorded Fakturama control trees
+│   ├── fixtures/ocr/             OCR of live Fakturama tables
 │   └── live/                     live UI tests against a running Fakturama (opt-in)
 └── docs/screenshots/             annotated screenshots of a run
 ```
+
+Modules for the creation branches, the Invoice and the run report are added as they are
+built (see [Progress](#progress)).
 
 ## Development setup
 
@@ -149,6 +146,35 @@ lists every control it finds on the screens that are open):
 .venv\Scripts\python main.py probe --screen order_editor
 ```
 
+## Running the automation (Windows)
+
+With Fakturama running and no New Order editor open:
+
+```powershell
+# Claude reads the image (needs ANTHROPIC_API_KEY in .env)
+.venv\Scripts\python main.py run samples\order_WEB-2026-0714-A17.png
+
+# no API key: use the saved transcription, still checked against the image's OCR
+.venv\Scripts\python main.py run samples\order_WEB-2026-0714-A17.png --raw samples\order_WEB-2026-0714-A17.raw.json
+
+# skip extraction: use a validated order JSON
+.venv\Scripts\python main.py run --from-json samples\order_WEB-2026-0714-A17.expected.json
+```
+
+Each stage ends with a check that reads every value back from Fakturama; the run stops at
+the first check that fails or the first case that needs a person, and leaves Fakturama as
+it is. Built so far:
+
+- stage 1: open the New Order and set Date, Cust.Ref., Net and With VAT;
+- stage 2: search Select the address, select the one exact contact (Company, First Name,
+  Name, ZIP and City all match) and check the filled-in Invoice and Delivery address;
+  two exact contacts, or the same company with other details, stop for manual review;
+- stage 3: search Select a product by SKU and select the one exact product (same Name),
+  then check that its line appeared.
+
+When a contact or product does not exist, the run cancels the selector and stops: the
+creation branches are step 8. The New Order is left open and unsaved.
+
 ## Live UI tests (Windows)
 
 `tests/live/` drives the real Fakturama and is skipped unless `FAKTURAMA_LIVE=1` is set.
@@ -166,6 +192,8 @@ The tests:
 - open Data > VATs, read the list with OCR, find the `Tax-free` row, open it by
   double-click and read Name, VAT code and Value from its editor;
 - read the column headers of Data > Documents and of the Select the address table.
+- run stage 1 for the sample order (from its validated JSON) and close the order unsaved.
+- search a contact and a product that do not exist; both selectors must be cancelled.
 
 Nothing is saved.
 
@@ -237,8 +265,8 @@ Tesseract if installed.
 | 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done (Claude call tested with a fake client; first live call needs an API key) |
 | 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
 | 4 | UI helpers and `locators.yaml` | done: locators and finder, connect and waits, actions with read-back, table OCR; 5 live tests pass. Editing item-line cells moves to step 6 (needs a product line) |
-| 5 | Stage 1: open New Order | — |
-| 6 | Stages 2–3: select existing Debtor and Products, fill item lines | — |
+| 5 | Stage 1: open New Order | done: `main.py run` runs it from the image or JSON; live-tested |
+| 6 | Stages 2–3: select existing Debtor and Products, fill item lines | selection and exact-match rules done (live: not-found path); selecting real records and editing item lines are tested in step 8 |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |
 | 8 | Create missing Debtor, Payment Method, VAT, Product | — |
 | 9 | Run report and manual-review stops | — |

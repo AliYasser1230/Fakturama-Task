@@ -9,6 +9,7 @@ from image_to_cash.ui.finder import DictNode, locate, resolve, scope_root
 from image_to_cash.ui.locators import Locator, Scope, load_locators
 
 FIXTURES = Path(__file__).parent / "fixtures" / "uia"
+SEEN_ONLY_WITH_DATA = {"order_editor.tab_delivery_address", "order_editor.delivery_address"}
 
 
 def _recording(stem: str) -> DictNode:
@@ -39,7 +40,7 @@ def test_every_control_resolves_in_a_real_recording(locators, recordings):
                     continue
             if not found:
                 missing.append(f"{screen_name}.{control_name}")
-    assert missing == []
+    assert set(missing) == SEEN_ONLY_WITH_DATA
 
 
 @pytest.mark.parametrize("recording, screen, control, expected", [

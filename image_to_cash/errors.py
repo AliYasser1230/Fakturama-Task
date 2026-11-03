@@ -43,3 +43,7 @@ class VerificationFailed(FlowStopped):
 
 class WaitTimeout(FlowStopped):
     pass
+
+
+class NotBuiltYet(FlowStopped):
+    pass

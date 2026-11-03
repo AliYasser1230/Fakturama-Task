@@ -4,11 +4,6 @@ import argparse
 import sys
 
 
-def _not_ready(step: int) -> int:
-    print(f"Not implemented yet: this command arrives in plan step {step}.", file=sys.stderr)
-    return 2
-
-
 def _api_error_message(exc: Exception) -> str | None:
     try:
         import anthropic
@@ -128,8 +123,67 @@ def cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_order(args: argparse.Namespace, settings):
+    from image_to_cash.errors import ExtractionRejected
+    from image_to_cash.extract.pipeline import extract_order, load_order_json, load_raw_json
+
+    try:
+        if args.from_json:
+            return load_order_json(args.from_json, settings=settings), []
+        raw = load_raw_json(args.raw) if args.raw else None
+        result = extract_order(args.image, settings=settings, raw=raw)
+        return result.order, result.issues
+    except ExtractionRejected as exc:
+        for issue in exc.issues:
+            print(f"  {issue}", file=sys.stderr)
+        print("REJECTED: fix the image or the data above; Fakturama was not touched.", file=sys.stderr)
+        return None, []
+    except Exception as exc:
+        message = _api_error_message(exc)
+        if message is None:
+            raise
+        print(message, file=sys.stderr)
+        return None, []
+
+
 def cmd_run(args: argparse.Namespace) -> int:
-    return _not_ready(5)
+    from image_to_cash.errors import FlowStopped
+    from image_to_cash.flow.runner import RunContext, format_run, run_flow
+    from image_to_cash.flow.stages import STAGES
+    from image_to_cash.settings import Settings
+    from image_to_cash.ui.app import Fakturama
+
+    if sys.platform != "win32":
+        print("run needs Windows with Fakturama (UI Automation is a Windows API).", file=sys.stderr)
+        return 2
+    if args.raw and not args.image:
+        print("--raw needs the order image too (it is checked against the image's OCR).", file=sys.stderr)
+        return 2
+
+    settings = Settings.from_env()
+    order, issues = _load_order(args, settings)
+    if order is None:
+        return 1
+    for issue in issues:
+        print(f"  {issue}", file=sys.stderr)
+    print(f"Order {order.external_reference}: {len(order.items)} item(s), "
+          f"gross {order.totals.gross} {order.currency}, {order.payment.method.value} {order.payment.paid_status}")
+
+    try:
+        app = Fakturama.connect(settings)
+    except FlowStopped as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    app.bring_to_front()
+    app.maximize()
+    result = run_flow(RunContext(order=order, app=app, settings=settings), STAGES)
+    print("\n".join(format_run(result)))
+    if not result.ok:
+        print("\nSTOPPED. Fakturama was left as it is, so you can look at it.", file=sys.stderr)
+        return 1
+    if result.not_built:
+        print("\nThe New Order stays open and unsaved in Fakturama.")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -162,6 +216,7 @@ def build_parser() -> argparse.ArgumentParser:
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("image", nargs="?", help="Path to the order image.")
     src.add_argument("--from-json", help="Skip extraction and use a saved order JSON.")
+    p.add_argument("--raw", help="Use a saved raw transcription instead of calling Claude (no API key needed).")
     p.set_defaults(func=cmd_run)
 
     return parser
