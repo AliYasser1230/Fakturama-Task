@@ -21,24 +21,24 @@ def test_sample_normalizes_to_expected_values(raw):
 
     d = order.debtor
     assert (d.company, d.first_name, d.last_name) == ("Northstar Office GmbH", "Marta", "Klein")
-    assert d.salutation is None  # spec 2.6: leave "---" when none is supplied
+    assert d.salutation is None
     assert d.alias == "NORTHSTAR-BERLIN"
     assert d.search_text == "Northstar Office GmbH"
 
     assert order.billing_address.street == "Friedrichstrasse 88"
     assert order.delivery_address.zip == "10553"
-    assert order.delivery_same_as_billing is False  # spec 2.8: a second address is needed
+    assert order.delivery_same_as_billing is False
 
     assert order.payment.method is PaymentMethod.BANK_TRANSFER
-    assert order.payment.method.payment_code == "Credit transfer"  # spec 2.10.4
+    assert order.payment.method.payment_code == "Credit transfer"
     assert order.payment.is_paid and order.payment.payment_date == date(2026, 7, 18)
 
     chair, mat = order.items
     assert (chair.sku, chair.quantity, chair.discount_pct, chair.vat_pct) == ("CHR-ERG-01", 2, 10, 19)
     assert chair.vat_name == "VAT 19%"
-    assert chair.gross_unit_price == Decimal("297.50")  # spec 3.9
+    assert chair.gross_unit_price == Decimal("297.50")
     assert mat.gross_unit_price == Decimal("47.60")
-    assert chair.computed_line_net == Decimal("450.00")  # spec 3.16
+    assert chair.computed_line_net == Decimal("450.00")
     assert mat.computed_line_net == Decimal("120.00")
 
     assert (order.totals.net, order.totals.vat, order.totals.gross) == (

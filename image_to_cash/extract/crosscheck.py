@@ -1,20 +1,3 @@
-"""
-Step B: every critical value Claude read must also appear in the OCR text of the same
-image. A value OCR cannot find may have been invented by the model, so the run stops.
-
-The comparison ignores case and spacing and treats look-alike characters (O/0, I/l/1)
-as equal: the goal is to catch invented values, not to punish OCR for misreading a glyph.
-
-Percentages need two extra rules, because Windows OCR is weak on them: it reads "%" as
-"96" or "0/0" ("10%" -> "1096" or "100/0"), and it drops small tokens like "0%" at random.
-1. A percentage also matches those known misreadings.
-2. A discount or VAT rate OCR still cannot find is a warning, not an error, when the
-   amounts that determine it were all found by OCR. Step D then proves it:
-   - discount: qty x unit net x (1 - discount) must equal the line net;
-   - VAT rate: only when every line has the same rate, the VAT total over the line nets
-     must equal it. With mixed rates OCR must find every rate.
-"""
-
 from __future__ import annotations
 
 from image_to_cash.errors import Issue
@@ -22,17 +5,14 @@ from image_to_cash.extract.schema import RawExtraction
 
 _LOOKALIKES = str.maketrans({"o": "0", "i": "1", "l": "1", "|": "1"})
 
-# How Windows OCR has been seen to spell "%" (after fold(), so "o/o" is "0/0").
 _PERCENT_MISREADINGS = ("96", "0/0")
 
 
 def fold(text: str) -> str:
-    """Lower-case, drop all whitespace, map look-alike characters."""
     return "".join(text.split()).casefold().translate(_LOOKALIKES)
 
 
 def spellings(value: str) -> set[str]:
-    """The folded value, plus the OCR misreadings of a percent sign if it has one."""
     folded = fold(value)
     if "%" not in folded:
         return {folded}
@@ -40,7 +20,6 @@ def spellings(value: str) -> set[str]:
 
 
 def critical_values(raw: RawExtraction) -> list[tuple[str, str]]:
-    """(field path, value) pairs that a wrong reading would turn into wrong records."""
     values: list[tuple[str | None, str]] = [
         (raw.order.external_reference, "order.external_reference"),
         (raw.order.order_date, "order.order_date"),
@@ -81,10 +60,6 @@ def critical_values(raw: RawExtraction) -> list[tuple[str, str]]:
 
 
 def _determined_by(raw: RawExtraction, path: str) -> tuple[list[str], str] | None:
-    """
-    For a percentage that step D can prove from other values: the paths of those values
-    and a description of the check. None if the value can only be confirmed by OCR.
-    """
     if not path.startswith("items[") or not path.endswith((".discount", ".vat")):
         return None
     index = int(path[len("items["):path.index("]")])

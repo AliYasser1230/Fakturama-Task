@@ -1,14 +1,3 @@
-"""
-Runs steps A -> B -> C -> D and returns a validated order, or raises ExtractionRejected.
-
-    A  llm_extractor  Claude transcribes the image (skipped when a saved raw JSON is given)
-    B  crosscheck     critical values must appear in the OCR text
-    C  normalize      verbatim strings -> typed OrderData
-    D  validate       arithmetic and consistency checks
-
-Also loads a previously saved order JSON so the UI flow can run without an API key.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -29,8 +18,8 @@ from image_to_cash.settings import Settings
 class ExtractionResult:
     order: OrderData
     raw: RawExtraction
-    issues: list[Issue] = field(default_factory=list)  # warnings only; errors raise
-    source: str = ""  # "claude:<model>" or "raw-json"
+    issues: list[Issue] = field(default_factory=list)
+    source: str = ""
     ocr_engine: str | None = None
     llm_usage: dict[str, Any] = field(default_factory=dict)
 
@@ -54,7 +43,6 @@ def extract_order(
     issues: list[Issue] = []
     usage: dict[str, Any] = {}
 
-    # A: transcription
     if raw is None:
         llm = extract_raw(image_path, model=settings.extraction_model,
                           effort=settings.extraction_effort, client=client)
@@ -62,7 +50,6 @@ def extract_order(
     else:
         source = "raw-json"
 
-    # B: OCR cross-check
     ocr_engine = None
     if ocr_check:
         try:
@@ -74,7 +61,6 @@ def extract_order(
     else:
         issues.append(Issue("warning", "ocr", "OCR cross-check skipped (--no-ocr-check)"))
 
-    # C + D: normalize, then check the arithmetic
     order, norm_issues = normalize(raw)
     issues += norm_issues
     if order is not None:
@@ -92,7 +78,6 @@ def load_raw_json(path: str | Path) -> RawExtraction:
 
 
 def load_order_json(path: str | Path, *, settings: Settings) -> OrderData:
-    """Load a saved OrderData JSON and re-run the step D checks, so an edited file cannot skip them."""
     order = OrderData.model_validate_json(Path(path).read_text(encoding="utf-8"))
     issues = validate(order, expected_currency=settings.expected_currency)
     if any(i.level == "error" for i in issues):

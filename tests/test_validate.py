@@ -23,7 +23,7 @@ def test_sample_passes_all_checks(order):
 
 
 def test_wrong_line_total_is_caught(order):
-    order.items[0].line_net = Decimal("500.00")  # discount not applied
+    order.items[0].line_net = Decimal("500.00")
     issues = validate(order)
     assert "items[0]" in _errors(issues)
     assert any("450.00" in i.message for i in issues)
@@ -37,7 +37,6 @@ def test_wrong_net_vat_gross_are_caught(order):
 
 
 def test_vat_rounded_per_rate_or_per_line_both_accepted(order):
-    # 3 x 0.35 at 19%: per line 0.07 x 3 = 0.21, per rate round(1.05 x 0.19) = 0.20
     for item in order.items:
         item.quantity, item.unit_net_price, item.discount_pct = Decimal("1"), Decimal("0.35"), Decimal("0")
         item.line_net = Decimal("0.35")

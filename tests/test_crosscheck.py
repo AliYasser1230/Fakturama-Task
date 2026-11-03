@@ -2,7 +2,6 @@ from image_to_cash.extract.crosscheck import critical_values, crosscheck, fold, 
 
 
 def _ocr_without(raw, *paths):
-    """OCR text with every critical value except the given ones."""
     return "\n".join(v for p, v in critical_values(raw) if p not in paths)
 
 
@@ -15,14 +14,13 @@ def test_all_values_present_gives_no_issues(raw, sample_ocr_text):
 
 
 def test_invented_value_is_caught(raw, sample_ocr_text):
-    raw.items[0].sku = "CHR-ERG-07"  # not on the image
+    raw.items[0].sku = "CHR-ERG-07"
     issues = crosscheck(raw, sample_ocr_text)
     assert [i.field for i in issues] == ["items[0].sku"]
     assert issues[0].level == "error"
 
 
 def test_spacing_case_and_lookalikes_are_tolerated(raw):
-    # OCR read "O" for "0", "l" for "1", and split tokens differently.
     ocr = (
         "WEB-2O26-O7l4-Al7\n" + "\n".join(v for p, v in critical_values(raw) if p != "order.external_reference")
     ).replace("EUR 570.00", "EUR570.00")
@@ -36,7 +34,6 @@ def test_fold():
 def test_critical_values_cover_items_and_totals(raw):
     paths = {p for p, _ in critical_values(raw)}
     assert {"items[1].sku", "items[1].line_net", "totals.gross_total", "delivery_address.zip"} <= paths
-    # Empty values (salutation, district, ...) are not checked.
     assert not any(p.endswith(".salutation") or p.endswith(".district") for p in paths)
 
 
@@ -46,7 +43,6 @@ def test_percent_spellings():
 
 
 def test_windows_ocr_misreadings_of_percent_count_as_found(raw):
-    # What Windows OCR printed for the sample's "10%" and "0%" discounts.
     text = _ocr_without(raw, "items[0].discount", "items[1].discount")
     assert crosscheck(raw, text + "\n1096\n00/0") == []
     assert crosscheck(raw, text + "\n100/0\n00/0") == []
@@ -67,7 +63,6 @@ def test_missing_vat_rate_is_a_warning_only_when_every_line_has_that_rate(raw):
     text = _ocr_without(raw, "items[0].vat", "items[1].vat")
     assert _levels(crosscheck(raw, text)) == [("warning", "items[0].vat"), ("warning", "items[1].vat")]
 
-    # With mixed rates the VAT total no longer fixes each rate, so OCR must find them.
     raw.items[1].vat = "7%"
     assert _levels(crosscheck(raw, text)) == [("error", "items[0].vat"), ("error", "items[1].vat")]
 

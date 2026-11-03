@@ -1,5 +1,3 @@
-"""The Claude call, tested with a fake client: no network, no API key."""
-
 import base64
 import io
 from types import SimpleNamespace
@@ -44,7 +42,7 @@ def test_request_shape(raw, sample_image):
     assert call["output_format"] is RawExtraction
     assert call["output_config"] == {"effort": "medium"}
     assert call["fallbacks"] == "default" and call["betas"] == ["server-side-fallback-2026-07-01"]
-    assert "temperature" not in call  # rejected by current models
+    assert "temperature" not in call
     image_block, text_block = call["messages"][0]["content"]
     assert image_block["source"]["media_type"] == "image/png"
     assert base64.standard_b64decode(image_block["source"]["data"]) == sample_image.read_bytes()

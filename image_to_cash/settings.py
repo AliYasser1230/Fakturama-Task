@@ -1,9 +1,3 @@
-"""
-Run settings: Claude model, timeouts, paths.
-
-Values come from environment variables or a local .env file (see .env.example).
-"""
-
 from __future__ import annotations
 
 import os
@@ -18,12 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 @dataclass(frozen=True)
 class Settings:
     extraction_model: str = "claude-opus-5-5"
-    # Effort for the extraction call. Transcription is easy for the model; "medium" keeps
-    # it careful without paying for deep reasoning.
     extraction_effort: str = "medium"
-    # Fakturama's document currency. An image in another currency is rejected.
     expected_currency: str = "EUR"
-    # Language of the OCR engine (Windows OCR / Tesseract / Apple Vision).
     ocr_language: str = "en"
     fakturama_exe: str | None = None
     runs_dir: Path = PROJECT_ROOT / "runs"

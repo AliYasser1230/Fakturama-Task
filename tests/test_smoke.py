@@ -1,5 +1,3 @@
-"""Project-wide smoke tests: every module imports on any OS, and the CLI starts."""
-
 import importlib
 import pkgutil
 import sys
@@ -18,7 +16,6 @@ def _all_modules():
 
 @pytest.mark.parametrize("name", list(_all_modules()))
 def test_module_imports_without_windows(name):
-    # UI modules must import lazily, so this also passes on macOS/Linux.
     importlib.import_module(name)
 
 
@@ -34,7 +31,5 @@ def test_sample_image_present(sample_image):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="the UI driver runs on Windows only")
 def test_windows_ui_libraries_load():
-    # pywinauto needs pywin32's win32ui, which needs Microsoft's Visual C++ runtime
-    # (mfc140u.dll). A new Windows may not have it; scripts/windows_setup.ps1 installs it.
-    import pywinauto  # noqa: F401
-    import winocr  # noqa: F401
+    import pywinauto
+    import winocr

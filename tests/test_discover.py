@@ -1,5 +1,3 @@
-"""The OS-independent parts of the discovery tool. Recording itself needs Windows."""
-
 import sys
 
 import pytest
@@ -12,7 +10,6 @@ def test_screens_are_unique_and_described():
     keys = [s.key for s in SCREENS]
     assert len(keys) == len(set(keys))
     assert all(s.instructions.strip() for s in SCREENS)
-    # The menu popup closes when the console takes focus, so it is recorded on a timer.
     menu = next(s for s in SCREENS if s.key == "data_menu")
     assert menu.countdown > 0 and menu.focus is False
 

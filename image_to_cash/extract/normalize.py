@@ -1,12 +1,3 @@
-"""
-Step C: turn the verbatim Raw extraction into a typed OrderData.
-
-ISO dates, Decimal amounts, percentages as numbers, payment method mapped to the known
-list, contact name split into first and last name. Every problem is collected as an
-Issue instead of raising on the first one, so a report shows all of them at once.
-Anything that would need a guess is an error.
-"""
-
 from __future__ import annotations
 
 import re
@@ -29,7 +20,6 @@ from image_to_cash.numbers import parse_amount, parse_percent
 
 T = TypeVar("T")
 
-# Salutations recognized at the start of a contact name ("Ms Marta Klein").
 _SALUTATIONS = {"mr": "Mr.", "mrs": "Mrs.", "ms": "Ms.", "herr": "Mr.", "frau": "Mrs."}
 
 _PAYMENT_METHODS = {m.value.casefold(): m for m in PaymentMethod}
@@ -38,7 +28,6 @@ _MONTH_FORMATS = ("%d %B %Y", "%d %b %Y", "%B %d, %Y", "%b %d, %Y", "%B %d %Y", 
 
 
 def clean(text: str | None) -> str | None:
-    """Trim and collapse whitespace; empty -> None."""
     if text is None:
         return None
     text = " ".join(str(text).split())
@@ -46,10 +35,6 @@ def clean(text: str | None) -> str | None:
 
 
 def parse_date(text: str) -> date:
-    """
-    Accept unambiguous formats only: 2026-07-14, 14.07.2026, 14 July 2026, July 14, 2026.
-    Slash dates are accepted only when the day is > 12 (otherwise D/M vs M/D is a guess).
-    """
     s = clean(text)
     if not s:
         raise ValueError("missing date")
@@ -86,11 +71,6 @@ def parse_payment_method(text: str) -> PaymentMethod:
 
 
 def split_contact_name(text: str | None) -> tuple[str | None, str | None, str | None]:
-    """
-    "Marta Klein" -> (None, "Marta", "Klein"); "Ms Marta Klein" -> ("Ms.", "Marta", "Klein").
-    One word -> last name only. Three or more words are ambiguous ("Jan van der Berg") and
-    raise ValueError, because Debtor matching compares First Name and Name exactly.
-    """
     s = clean(text)
     if not s:
         return None, None, None
@@ -122,7 +102,7 @@ class _Collector:
             self.error(field, "missing")
             return None
         try:
-            return fn(value)  # type: ignore[arg-type]
+            return fn(value)
         except ValueError as exc:
             self.error(field, str(exc))
             return None
@@ -155,19 +135,16 @@ def _address(c: _Collector, prefix: str, raw: RawAddress) -> Address | None:
 
 
 def normalize(raw: RawExtraction) -> tuple[OrderData | None, list[Issue]]:
-    """Return (order, issues). order is None when any error was found."""
     c = _Collector()
 
     for path in raw.unreadable_fields:
         c.error(path, "printed but not clearly legible on the image")
 
-    # Order header
     external_reference = c.required("order.external_reference", raw.order.external_reference)
     order_date = c.parse("order.order_date", parse_date, raw.order.order_date)
     currency = c.required("order.currency", raw.order.currency)
     currency = currency.upper() if currency else None
 
-    # Debtor
     cust = raw.customer
     salutation, first_name, last_name = None, None, None
     try:
@@ -193,7 +170,6 @@ def normalize(raw: RawExtraction) -> tuple[OrderData | None, list[Issue]]:
         source_customer_id=clean(raw.order.customer_id),
     )
 
-    # Addresses
     billing = _address(c, "billing_address", raw.billing_address)
     if raw.delivery_address is None:
         delivery = billing
@@ -201,7 +177,6 @@ def normalize(raw: RawExtraction) -> tuple[OrderData | None, list[Issue]]:
     else:
         delivery = _address(c, "delivery_address", raw.delivery_address)
 
-    # Payment
     method = c.parse("payment.method", parse_payment_method, raw.payment.method)
     paid_status = c.required("payment.paid_status", raw.payment.paid_status)
     paid_status = paid_status.upper() if paid_status else None
@@ -209,7 +184,6 @@ def normalize(raw: RawExtraction) -> tuple[OrderData | None, list[Issue]]:
     if clean(raw.payment.payment_date):
         payment_date = c.parse("payment.payment_date", parse_date, raw.payment.payment_date)
 
-    # Items
     items: list[Item] = []
     if not raw.items:
         c.error("items", "no item rows found")
@@ -236,7 +210,6 @@ def normalize(raw: RawExtraction) -> tuple[OrderData | None, list[Issue]]:
                 c.warn(f"{p}.position", f"not a number: {r.position!r}; using row order")
         items.append(Item(position=position, unit=clean(r.unit), **values))
 
-    # Totals
     t = raw.totals
     net = c.parse("totals.net_total", parse_amount, t.net_total)
     vat = c.parse("totals.vat_total", parse_amount, t.vat_total)
@@ -249,7 +222,6 @@ def normalize(raw: RawExtraction) -> tuple[OrderData | None, list[Issue]]:
         except ValueError:
             nonzero = True
         if nonzero:
-            # Spec 4.2 keeps discount 0% and free shipping; other values are not automated.
             c.error(field, f"order-level value {value!r} is printed; this flow does not apply it")
 
     if not c.ok:

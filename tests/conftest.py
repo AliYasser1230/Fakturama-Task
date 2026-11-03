@@ -27,13 +27,11 @@ def sample_expected_path() -> Path:
 
 @pytest.fixture
 def raw(sample_raw_path) -> RawExtraction:
-    """A fresh copy of the hand-checked transcription of the sample image; safe to mutate."""
     return load_raw_json(sample_raw_path)
 
 
 @pytest.fixture
 def sample_ocr_text(raw) -> str:
-    """Text an OCR engine would return for the sample: every critical value, one per line."""
     from image_to_cash.extract.crosscheck import critical_values
 
     return "\n".join(value for _, value in critical_values(raw))

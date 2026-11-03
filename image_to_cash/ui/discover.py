@@ -1,20 +1,3 @@
-"""
-Discovery tool (plan step 3): record what UI Automation can see in each Fakturama screen
-the flow uses, so config/locators.yaml is built from real control names, not guesses.
-
-Guided session: for each screen, the tool says what to open in Fakturama and waits for
-Enter. It then records every top-level window of the Fakturama process (main window,
-dialogs, menus):
-
-    <NN>_<screen>/<k>_<window>.tree.txt   indented control tree, easy to read
-    <NN>_<screen>/<k>_<window>.tree.json  same tree, for scripts
-    <NN>_<screen>/<k>_<window>.png        screenshot of the window
-    <NN>_<screen>/<k>_<window>.ocr.json   OCR words + boxes of that screenshot
-
-Read-only: it brings Fakturama's windows to the front, but never clicks or types.
-Everything ends up in runs/discovery/<timestamp>/ and a .zip of that folder.
-"""
-
 from __future__ import annotations
 
 import json
@@ -33,8 +16,8 @@ from typing import Any
 class Screen:
     key: str
     instructions: str
-    countdown: int = 0  # seconds to wait after Enter, for popups that close on focus change
-    focus: bool = True  # bring Fakturama to the front before the screenshot
+    countdown: int = 0
+    focus: bool = True
 
 
 SCREENS: list[Screen] = [
@@ -65,7 +48,6 @@ SCREENS: list[Screen] = [
                              "open (do not save)."),
 ]
 
-# Control patterns worth knowing per element: they decide how a control can be driven.
 PATTERNS = (
     "Invoke", "Value", "Toggle", "ExpandCollapse", "Selection", "SelectionItem",
     "RangeValue", "Grid", "Table", "Text", "Scroll", "Window", "LegacyIAccessible",
@@ -74,10 +56,6 @@ PATTERNS = (
 MAX_DEPTH = 60
 MAX_ELEMENTS_PER_WINDOW = 6000
 
-
-# --------------------------------------------------------------------------------------
-# Pure helpers (tested on any OS)
-# --------------------------------------------------------------------------------------
 
 def safe_name(text: str, limit: int = 40) -> str:
     name = re.sub(r"[^A-Za-z0-9._-]+", "_", text or "").strip("_")
@@ -90,7 +68,6 @@ def _short(value: Any, limit: int = 80) -> str:
 
 
 def format_node(node: dict[str, Any]) -> str:
-    """One line per control: type, name and the properties a locator can use."""
     parts = [node.get("control_type") or "?"]
     parts.append(f"name={_short(node.get('name', ''))!r}")
     for key in ("automation_id", "class_name"):
@@ -119,12 +96,7 @@ def format_tree(node: dict[str, Any], depth: int = 0) -> list[str]:
     return lines
 
 
-# --------------------------------------------------------------------------------------
-# Windows-only parts
-# --------------------------------------------------------------------------------------
-
 def _describe(info) -> dict[str, Any]:
-    """Every property of one UIA element that could help build a locator."""
     from pywinauto.uia_defines import NoPatternInterfaceError, get_elem_interface
 
     def safe(fn, default=None):
@@ -178,7 +150,7 @@ def _walk(info, depth: int, budget: list[int]) -> dict[str, Any]:
         return node
     try:
         children = info.children()
-    except Exception as exc:  # COM errors on half-destroyed controls
+    except Exception as exc:
         node["truncated"] = f"children not readable: {exc}"
         return node
     node["children"] = []
@@ -190,15 +162,10 @@ def _walk(info, depth: int, budget: list[int]) -> dict[str, Any]:
     return node
 
 
-# Console / terminal windows can have "Fakturama" in their title too (e.g. the project folder).
 _CONSOLE_CLASSES = {"ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS", "PseudoConsoleWindow"}
 
 
 def pick_fakturama_window(windows: list[tuple[str, str, Any]]) -> Any:
-    """
-    From (title, class_name, window) triples pick Fakturama's main window: title contains
-    "Fakturama", never a console; an SWT shell (Fakturama's toolkit) is preferred.
-    """
     candidates = [
         (title, cls, w) for title, cls, w in windows
         if "fakturama" in (title or "").lower() and cls not in _CONSOLE_CLASSES
@@ -259,7 +226,7 @@ def _capture(screen: Screen, index: int, out_dir: Path, pid: int, ocr_lang: str 
         if screen.focus:
             try:
                 win.set_focus()
-                time.sleep(0.3)  # let the window repaint before the screenshot
+                time.sleep(0.3)
             except Exception:
                 pass
 
@@ -299,7 +266,6 @@ def _capture(screen: Screen, index: int, out_dir: Path, pid: int, ocr_lang: str 
 
 
 def run_discovery(out_root: Path, *, only: list[str] | None = None, ocr_lang: str | None = "en") -> Path:
-    """Guided discovery session. Returns the path of the .zip with everything recorded."""
     if sys.platform != "win32":
         raise RuntimeError("Discovery needs Windows: UI Automation is a Windows API.")
 

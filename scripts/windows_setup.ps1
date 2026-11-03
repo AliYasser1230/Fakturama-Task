@@ -1,19 +1,3 @@
-<#
-  One-command setup on Windows, then the guided discovery of Fakturama's controls.
-
-  Run from the project folder in PowerShell:
-      powershell -ExecutionPolicy Bypass -File scripts\windows_setup.ps1
-
-  What it does:
-    1. Finds Python 3.11 64-bit (x64); installs it with winget if it is missing.
-    2. Creates .venv and installs requirements.txt, plus Microsoft's Visual C++ runtime
-       if it is missing (pywinauto needs it).
-    3. Runs the tests (including Windows OCR on the sample image).
-    4. Waits until Fakturama is running, then starts "main.py discover".
-
-  Options:
-      -SkipDiscovery   stop after the tests
-#>
 param([switch]$SkipDiscovery)
 
 $ErrorActionPreference = "Stop"
@@ -30,7 +14,6 @@ function Find-Python311 {
     return $null
 }
 
-# 1. Python 3.11, x64 build (some dependencies have no ARM64 builds)
 Step "1/4 Python 3.11 (64-bit x64)"
 $python = Find-Python311
 if (-not $python) {
@@ -49,7 +32,6 @@ if ($platform -ne "win-amd64") {
 }
 Write-Host "Using $python ($platform)"
 
-# 2. Virtual environment and dependencies
 Step "2/4 Virtual environment and dependencies"
 $venvPython = Join-Path (Get-Location) ".venv\Scripts\python.exe"
 if (-not (Test-Path $venvPython)) {
@@ -59,11 +41,9 @@ if (-not (Test-Path $venvPython)) {
 & $venvPython -m pip install --disable-pip-version-check -r requirements.txt
 if ($LASTEXITCODE -ne 0) { Fail "pip install failed (see the messages above)" }
 
-# pywinauto needs pywin32's win32ui, which needs Microsoft's Visual C++ runtime
-# (mfc140u.dll). A new Windows may not have it.
 function Test-Win32ui {
     $previous = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"   # a failed import writes to stderr; that is not fatal here
+    $ErrorActionPreference = "Continue"
     & $venvPython -c "import win32ui" *> $null
     $ok = ($LASTEXITCODE -eq 0)
     $ErrorActionPreference = $previous
@@ -89,7 +69,6 @@ if (-not (Test-Win32ui)) {
     }
 }
 
-# 3. Tests
 Step "3/4 Tests"
 & $venvPython -m pytest -q
 if ($LASTEXITCODE -ne 0) {
@@ -103,10 +82,8 @@ if ($SkipDiscovery) {
     exit 0
 }
 
-# 4. Discovery
 Step "4/4 Discovery of Fakturama's controls"
 function Test-Fakturama {
-    # Only Fakturama's own process (or its Java runtime), not editors or folders named "Fakturama-Task".
     $found = Get-Process | Where-Object { $_.MainWindowTitle -like "*Fakturama*" -and $_.ProcessName -match "^(Fakturama|javaw?)$" }
     return $null -ne $found
 }

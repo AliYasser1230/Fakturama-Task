@@ -1,10 +1,3 @@
-"""Command-line entry point.
-
-    python main.py extract  <image>              image -> validated order JSON
-    python main.py discover                      dump Fakturama's UIA tree (Windows)
-    python main.py run      <image | --from-json file>   full Order -> Invoice flow (Windows)
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -17,13 +10,11 @@ def _not_ready(step: int) -> int:
 
 
 def _api_error_message(exc: Exception) -> str | None:
-    """Readable message for Anthropic SDK errors, most specific first; None if not one."""
     try:
         import anthropic
     except ImportError:
         return None
     if isinstance(exc, TypeError) and "authentication method" in str(exc):
-        # Raised by the SDK before any request when no API key / token / profile is found.
         return ("No Claude API key found. Put ANTHROPIC_API_KEY in .env (see .env.example), "
                 "or try without a key: --raw samples/order_WEB-2026-0714-A17.raw.json")
     if isinstance(exc, anthropic.AuthenticationError):
@@ -57,7 +48,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
             print(f"  {issue}", file=sys.stderr)
         print("REJECTED: fix the image or the data above; Fakturama was not touched.", file=sys.stderr)
         return 1
-    except Exception as exc:  # SDK errors only; anything else is a bug and should raise
+    except Exception as exc:
         message = _api_error_message(exc)
         if message is None:
             raise

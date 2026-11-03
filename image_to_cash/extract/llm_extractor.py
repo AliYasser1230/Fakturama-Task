@@ -1,11 +1,3 @@
-"""
-Step A: send the image to Claude and get the Raw schema back as structured output.
-
-The model only transcribes what is printed; it never computes, converts or completes
-values. Normalization and arithmetic happen afterwards in code (normalize.py, validate.py),
-and every critical value is checked against OCR (crosscheck.py).
-"""
-
 from __future__ import annotations
 
 import base64
@@ -38,25 +30,21 @@ order-level discount or a shipping charge.
 
 USER_PROMPT = "Transcribe this order document."
 
-# The API accepts these formats directly; anything else is converted to PNG first.
 _MEDIA_TYPES = {"PNG": "image/png", "JPEG": "image/jpeg", "GIF": "image/gif", "WEBP": "image/webp"}
-# The per-image API limit is 5 MB of base64, i.e. about 3.75 MB of raw bytes.
 _MAX_RAW_BYTES = 3_750_000
 _MAX_EDGE_WHEN_SHRINKING = 2400
 
-# Server-side refusal fallback: Anthropic picks the fallback model per refusal category.
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 @dataclass
 class LlmExtraction:
     raw: RawExtraction
-    model: str  # the model that actually answered (differs if a fallback ran)
+    model: str
     usage: dict[str, Any] = field(default_factory=dict)
 
 
 def encode_image(path: str | Path) -> tuple[str, str]:
-    """Return (media_type, base64 data), converting or shrinking the image only when needed."""
     path = Path(path)
     data = path.read_bytes()
     with Image.open(io.BytesIO(data)) as img:
@@ -86,7 +74,6 @@ def extract_raw(
     effort: str,
     client: Any = None,
 ) -> LlmExtraction:
-    """Call Claude once and return the transcription. Raises ExtractionRejected on any failure."""
     if client is None:
         import anthropic
 

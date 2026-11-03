@@ -1,14 +1,3 @@
-"""
-Pydantic models for the extracted order (design doc 3.3 schema).
-
-Two layers:
-- Raw*: what Claude reads off the image, every value a verbatim string. This is the
-  structured-output schema sent to the API, and what the OCR cross-check compares.
-- OrderData: the normalized, typed order the Fakturama flow works with (normalize.py
-  turns Raw into OrderData). It also carries the values the spec derives from the
-  image, such as the Product gross price (3.9) and the line price (3.16).
-"""
-
 from __future__ import annotations
 
 from datetime import date
@@ -18,11 +7,6 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 
 from image_to_cash.numbers import format_percent, money
-
-# --------------------------------------------------------------------------------------
-# Raw layer: structured output from Claude. Every field is required but nullable, so the
-# model has to state "not on the document" explicitly instead of silently skipping it.
-# --------------------------------------------------------------------------------------
 
 
 class _Raw(BaseModel):
@@ -97,11 +81,6 @@ class RawExtraction(_Raw):
     )
 
 
-# --------------------------------------------------------------------------------------
-# Normalized layer: what the Fakturama flow uses.
-# --------------------------------------------------------------------------------------
-
-
 class PaymentMethod(str, Enum):
     BANK_TRANSFER = "Bank Transfer"
     CREDIT_CARD = "Credit Card"
@@ -109,7 +88,6 @@ class PaymentMethod(str, Enum):
 
     @property
     def payment_code(self) -> str:
-        """Fakturama payment-code dropdown value (spec 2.10.4)."""
         return _PAYMENT_CODES[self]
 
 
@@ -135,7 +113,6 @@ class Address(BaseModel):
     country: str
 
     def same_as(self, other: "Address") -> bool:
-        """Same place and recipient, ignoring case and spacing (decides spec 2.8)."""
         return all(_same_text(getattr(self, f), getattr(other, f)) for f in Address.model_fields)
 
 
@@ -147,13 +124,10 @@ class Debtor(BaseModel):
     alias: str | None = None
     email: str | None = None
     phone: str | None = None
-    # Customer ID printed on the image. Kept for the report only: spec 2.6 says to keep
-    # the Customer ID that Fakturama proposes.
     source_customer_id: str | None = None
 
     @property
     def search_text(self) -> str:
-        """What to type into "Select the address" (spec 2.2)."""
         return self.company or " ".join(p for p in (self.first_name, self.last_name) if p)
 
 
@@ -176,21 +150,18 @@ class Item(BaseModel):
     unit_net_price: Decimal
     discount_pct: Decimal
     vat_pct: Decimal
-    line_net: Decimal  # as printed on the image
+    line_net: Decimal
 
     @property
     def vat_name(self) -> str:
-        """Name of the Fakturama VAT record, e.g. "VAT 19%" (spec 3.4-3.6)."""
         return f"VAT {format_percent(self.vat_pct)}%"
 
     @property
     def gross_unit_price(self) -> Decimal:
-        """Product master Price (gross): unit net x (1 + VAT/100), no line discount (spec 3.9)."""
         return money(self.unit_net_price * (1 + self.vat_pct / 100))
 
     @property
     def computed_line_net(self) -> Decimal:
-        """qty x unit net x (1 - discount/100) (spec 3.16)."""
         return money(self.quantity * self.unit_net_price * (1 - self.discount_pct / 100))
 
 
@@ -213,5 +184,4 @@ class OrderData(BaseModel):
 
     @property
     def delivery_same_as_billing(self) -> bool:
-        """True: one Debtor address gets both roles; False: a second address is needed (spec 2.8)."""
         return self.billing_address.same_as(self.delivery_address)

@@ -40,7 +40,6 @@ def test_pipeline_reports_normalize_and_validate_errors_together(monkeypatch, ra
     with pytest.raises(ExtractionRejected) as exc:
         pipeline.extract_order(sample_image, settings=SETTINGS, raw=raw)
     fields = {i.field.split(" ")[0] for i in exc.value.issues if i.level == "error"}
-    # One wrong line total breaks the line check, the net sum and the VAT computed from the lines.
     assert fields == {"items[0]", "totals.net", "totals.vat"}
 
 
@@ -61,10 +60,8 @@ def test_load_order_json_revalidates(tmp_path, sample_expected_path):
 
 @pytest.mark.skipif(available_engine() is None, reason="no OCR engine on this machine")
 def test_real_ocr_on_the_sample_image(raw, sample_image):
-    """End to end with the real OCR engine of this OS (Apple Vision on Mac, Windows OCR on Windows)."""
-    result = pipeline.extract_order(sample_image, settings=SETTINGS, raw=raw)  # raises if rejected
+    result = pipeline.extract_order(sample_image, settings=SETTINGS, raw=raw)
     assert result.ocr_engine in {"macos", "windows", "tesseract"}
-    # Windows OCR may miss the small percentages; those may only be warnings (see crosscheck.py).
     assert all(i.level == "warning" and i.field.endswith((".discount", ".vat")) for i in result.issues)
 
 
@@ -78,10 +75,9 @@ def test_cli_extract_writes_order_json(tmp_path, capsys, sample_image, sample_ra
 
 def test_cli_extract_without_api_key_explains_instead_of_crashing(monkeypatch, capsys, sample_image):
     def no_credentials(*args, **kwargs):
-        # What the SDK raises when no API key, token or profile is configured.
         raise TypeError('"Could not resolve authentication method. Expected one of api_key, auth_token, ..."')
 
-    monkeypatch.setattr(pipeline, "extract_raw", no_credentials)  # never reaches the network
+    monkeypatch.setattr(pipeline, "extract_raw", no_credentials)
     assert main.main(["extract", str(sample_image), "--no-ocr-check"]) == 1
     err = capsys.readouterr().err
     assert "No Claude API key found" in err and "--raw" in err

@@ -1,11 +1,3 @@
-"""
-Step D: arithmetic and consistency checks on the normalized order.
-
-line net = qty x unit net x (1 - discount/100); sum of lines = net total;
-VAT and gross totals match; PAID requires a payment date. A failed check is an error
-and stops the run before Fakturama is touched.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -17,10 +9,6 @@ from image_to_cash.numbers import format_percent, money
 
 
 def _vat_candidates(order: OrderData) -> set[Decimal]:
-    """
-    VAT total computed the two usual ways: rounded per line, or per VAT rate. Documents
-    differ in which one they use; both are accepted, anything else is an error.
-    """
     per_line = sum((money(i.line_net * i.vat_pct / 100) for i in order.items), Decimal("0"))
     by_rate: dict[Decimal, Decimal] = defaultdict(Decimal)
     for i in order.items:
@@ -41,7 +29,6 @@ def validate(order: OrderData, *, expected_currency: str = "EUR") -> list[Issue]
     if order.currency != expected_currency.upper():
         error("order.currency", f"{order.currency} differs from Fakturama's currency {expected_currency}")
 
-    # Items
     seen_skus: set[str] = set()
     for idx, item in enumerate(order.items):
         p = f"items[{idx}] ({item.sku})"
@@ -63,7 +50,6 @@ def validate(order: OrderData, *, expected_currency: str = "EUR") -> list[Issue]
             warn(p, "SKU appears on more than one line")
         seen_skus.add(item.sku.casefold())
 
-    # Totals
     lines_sum = sum((i.line_net for i in order.items), Decimal("0"))
     if lines_sum != order.totals.net:
         error("totals.net", f"sum of lines is {lines_sum}, but the image says {order.totals.net}")
@@ -78,7 +64,6 @@ def validate(order: OrderData, *, expected_currency: str = "EUR") -> list[Issue]
             f"but the image says {order.totals.gross}",
         )
 
-    # Payment
     pay = order.payment
     if pay.is_paid and pay.payment_date is None:
         error("payment.payment_date", "status is PAID but no payment date is printed")
