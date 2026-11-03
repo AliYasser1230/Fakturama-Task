@@ -1,10 +1,160 @@
-main: {}
-order_editor: {}
-select_address: {}
-debtor_editor: {}
-payment_editor: {}
-vat_editor: {}
-select_product: {}
-product_editor: {}
-documents: {}
-invoice_editor: {}
+main:
+  scope: {window: main}
+  controls:
+    new_order: {type: Button, name: "Create: New Order"}
+    new_invoice: {type: Button, name: "Create: New Invoice"}
+    save: {type: Button, name: "Save the current contents"}
+    nav_documents: {type: Text, name: Documents, within: {type: Pane, name: Navigation View}}
+    nav_products: {type: Text, name: Products, within: {type: Pane, name: Navigation View}}
+    nav_debtors: {type: Text, name: Debtors, within: {type: Pane, name: Navigation View}}
+    nav_payments: {type: Text, name: terms of payment, within: {type: Pane, name: Navigation View}}
+    nav_vats: {type: Text, name: VATs, within: {type: Pane, name: Navigation View}}
+    nav_new_product: {type: Text, name: New product, within: {type: Pane, name: Navigation View}}
+    nav_new_contact: {type: Text, name: New Contact, within: {type: Pane, name: Navigation View}}
+    menu_data: {type: MenuItem, name: Data, within: {type: MenuBar, name: Application}}
+
+data_menu:
+  scope: {window: main}
+  controls:
+    documents: {type: MenuItem, name: Documents, within: {type: Menu, name: Data}}
+    products: {type: MenuItem, name: Products, within: {type: Menu, name: Data}}
+    debtors: {type: MenuItem, name: Debtors, within: {type: Menu, name: Data}}
+    payments: {type: MenuItem, name: terms of payment, within: {type: Menu, name: Data}}
+    vats: {type: MenuItem, name: VATs, within: {type: Menu, name: Data}}
+
+order_editor:
+  scope: {tab: '\*?New Order'}
+  controls:
+    number: {type: Edit, after: {name: "No."}}
+    date: {type: Edit, after: {name: Date}}
+    price_mode: {type: ComboBox, after: {name: Date}}
+    cust_ref: {type: Edit, name: Cust.Ref.}
+    consultant: {type: Edit, name: Consultant}
+    vat_mode: {type: ComboBox, name: VAT}
+    select_address: {type: Image, after: {name: Addresses}, index: 1}
+    new_address: {type: Image, after: {name: Addresses}, index: 2}
+    address: {type: Edit, within: {type: Tab, name: Invoice address}}
+    select_product: {type: Image, after: {name: Items}, index: 1}
+    add_item: {type: Image, after: {name: Items}, index: 2}
+    delete_item: {type: Image, after: {name: Items}, index: 3}
+    items: {type: Grid, after: {name: Items}, columns: [Pos., Qty., Item No., Picture, Name, Description, VAT, U.Price]}
+    remarks: {type: Edit, after: {name: Remarks}}
+    total_gross: {type: Edit, name: Total Gross}
+    discount: {type: Edit, name: Discount}
+    shipping: {type: ComboBox, name: Shipping}
+    shipping_amount: {type: Edit, name: "", after: {name: Shipping}}
+    vat_total: {type: Edit, name: VAT}
+    total: {type: Edit, name: Total}
+    create_invoice: {type: Button, name: Invoice, within: {type: Group, name: Create a follow-up document}}
+
+select_address:
+  scope: {dialog: Select the address}
+  controls:
+    search: {type: Edit, after: {name: "Search:"}}
+    table: {type: Grid, columns: [No., First Name, Name, Company, ZIP, City]}
+    ok: {type: Button, name: OK}
+    cancel: {type: Button, name: Cancel}
+
+select_product:
+  scope: {dialog: Select a product}
+  controls:
+    search: {type: Edit, after: {name: "Search:"}}
+    table: {type: Grid, columns: [Item No., Name, Description, Stock, Price, VAT]}
+    ok: {type: Button, name: OK}
+    cancel: {type: Button, name: Cancel}
+
+debtor_editor:
+  scope: {tab: '\*?New Debtor'}
+  controls:
+    customer_id: {type: Edit, name: Customer ID}
+    company: {type: Edit, name: Company}
+    salutation: {type: ComboBox, after: {name: Salutation}}
+    first_name: {type: Edit, after: {name: First Name Last Name}, index: 1}
+    last_name: {type: Edit, after: {name: First Name Last Name}, index: 2}
+    tab_addresses: {type: TabItem, name: Addresses}
+    tab_misc: {type: TabItem, name: Miscellaneous}
+    tab_main_address: {type: TabItem, name: Main address}
+    additional_name: {type: Edit, name: additional name}
+    street: {type: Edit, name: Street}
+    address_specification: {type: Edit, name: Address specification}
+    district: {type: Edit, name: district}
+    zip: {type: Edit, after: {name: ZIP - City}, index: 1}
+    city: {type: Edit, after: {name: ZIP - City}, index: 2}
+    country: {type: ComboBox, name: Country}
+    email: {type: Edit, name: E-Mail}
+    phone: {type: Edit, name: Telephone}
+    mobile: {type: Edit, name: Mobile}
+    alias: {type: Edit, name: Alias name}
+    vat_number: {type: Edit, name: VAT Number}
+    payment: {type: ComboBox, name: Payment}
+    discount: {type: Edit, name: Discount}
+    net_or_gross: {type: ComboBox, name: Net or Gross}
+
+payment_editor:
+  scope: {tab: '\*?New Term of Payment'}
+  controls:
+    name: {type: Edit, name: Name}
+    description: {type: Edit, name: Description}
+    payment_code: {type: ComboBox, name_re: '(?i)!?editorPaymentPaymentcode!?|payment ?code'}
+    cash_discount: {type: Edit, name: Cash discount}
+    discount_days: {type: Edit, name: Discount Days}
+    net_days: {type: Edit, name: Net Days}
+    text_unpaid: {type: Edit, name: "Text 'unpaid'"}
+    text_deposit: {type: Edit, name: "Text 'deposit'"}
+    text_paid: {type: Edit, name: "Text 'paid'"}
+
+vat_editor:
+  scope: {tab: '\*?New TAX Rate'}
+  controls:
+    name: {type: Edit, name: Name}
+    category: {type: ComboBox, name: Category}
+    description: {type: Edit, name: Description}
+    vat_code: {type: ComboBox, name: VAT code (E-Invoice)}
+    value: {type: Edit, name: Value}
+
+product_editor:
+  scope: {tab: '\*?New product'}
+  controls:
+    item_number: {type: Edit, name: Item Number}
+    name: {type: Edit, name: Name}
+    category: {type: ComboBox, name: Category}
+    gtin: {type: Edit, name: GTIN}
+    supplier_code: {type: Edit, name: supplier code}
+    description: {type: Edit, name: Description}
+    price_gross: {type: Edit, after: {name: Price (gross)}}
+    cost_price_net: {type: Edit, after: {name: cost price (net)}}
+    vat: {type: ComboBox, name: VAT}
+    stock: {type: Edit, name: Stock}
+
+products_list:
+  scope: {tab: Products}
+  controls:
+    create: {type: Button, name: Create a new product}
+    delete: {type: Button, name: Delete the marked entry}
+    search: {type: Edit, after: {name: "Search:"}}
+    table: {type: Grid, columns: [Item No., Name, Description, Stock, Price, VAT]}
+
+documents_list:
+  scope: {tab: Documents}
+  controls:
+    search: {type: Edit, after: {name: "Search:"}}
+    delete: {type: Button, name: Delete the marked entry}
+    table: {type: Grid, columns: [Document, Date, Name, Cust.Ref., State, Total, Printed]}
+
+invoice_editor:
+  scope: {tab: '\*?New Invoice'}
+  controls:
+    number: {type: Edit, after: {name: "No."}}
+    date: {type: Edit, after: {name: Date}}
+    cust_ref: {type: Edit, name: Cust.Ref.}
+    service_date: {type: Edit, after: {name: Service date}}
+    order_date: {type: Edit, after: {name: Order Date}}
+    address: {type: Edit, within: {type: Tab, name: Invoice address}}
+    items: {type: Grid, after: {name: Items}, columns: [Pos., Qty., Item No., Picture, Name, Description, VAT, U.Price]}
+    total_gross: {type: Edit, name: Total Gross}
+    vat_total: {type: Edit, name: VAT}
+    total: {type: Edit, name: Total}
+    paid: {type: CheckBox, name: paid}
+    payment: {type: ComboBox, after: {type: CheckBox, name: paid}}
+    due_days: {type: Edit, after: {name: Due Days}}
+    pay_until: {type: Edit, after: {name: Pay Until}}
