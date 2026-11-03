@@ -75,6 +75,17 @@ def test_cli_extract_writes_order_json(tmp_path, capsys, sample_image, sample_ra
     assert "OK: WEB-2026-0714-A17" in capsys.readouterr().err
 
 
+def test_cli_extract_without_api_key_explains_instead_of_crashing(monkeypatch, capsys, sample_image):
+    def no_credentials(*args, **kwargs):
+        # What the SDK raises when no API key, token or profile is configured.
+        raise TypeError('"Could not resolve authentication method. Expected one of api_key, auth_token, ..."')
+
+    monkeypatch.setattr(pipeline, "extract_raw", no_credentials)  # never reaches the network
+    assert main.main(["extract", str(sample_image), "--no-ocr-check"]) == 1
+    err = capsys.readouterr().err
+    assert "No Claude API key found" in err and "--raw" in err
+
+
 def test_cli_extract_rejected_exit_code(tmp_path, capsys, sample_image, raw):
     raw.totals.gross_total = "EUR 999.00"
     bad = tmp_path / "bad.raw.json"

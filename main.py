@@ -22,6 +22,10 @@ def _api_error_message(exc: Exception) -> str | None:
         import anthropic
     except ImportError:
         return None
+    if isinstance(exc, TypeError) and "authentication method" in str(exc):
+        # Raised by the SDK before any request when no API key / token / profile is found.
+        return ("No Claude API key found. Put ANTHROPIC_API_KEY in .env (see .env.example), "
+                "or try without a key: --raw samples/order_WEB-2026-0714-A17.raw.json")
     if isinstance(exc, anthropic.AuthenticationError):
         return "Claude API key missing or invalid. Put ANTHROPIC_API_KEY in .env (see .env.example)."
     if isinstance(exc, anthropic.PermissionDeniedError):
