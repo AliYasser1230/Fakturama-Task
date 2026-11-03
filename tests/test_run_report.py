@@ -44,10 +44,11 @@ def test_partial_run_writes_report_order_and_screenshots_but_no_review(tmp_path,
     result, folder, data = _run(tmp_path, order, app, open_editors=["*New Order", "*New Debtor", "Bank Transfer"])
     assert folder.name == "20261103-153007-WEB-2026-0714-A17"
     assert data["outcome"] == "partial"
-    assert [(s["stage"], s["status"]) for s in data["stages"]] == [("1", "passed"), ("2", "not built yet")]
+    assert [(s["stage"], s["status"]) for s in data["stages"]] == [("1", "passed"), ("2", "passed"), ("3", "passed")]
+    assert data["not_built"] == ["4 Complete and save the Order", "5 Complete and verify the linked Invoice"]
     assert len(data["stages"][0]["checks"]) == 6 and all(c["ok"] for c in data["stages"][0]["checks"])
-    assert data["stopped"]["kind"] == "not built yet"
-    assert [s["label"] for s in data["screenshots"]] == ["start", "stage1_passed", "stage2_not built yet"]
+    assert data["stopped"] is None
+    assert [s["label"] for s in data["screenshots"]] == ["start", "stage1_passed", "stage2_passed", "stage3_passed"]
     assert all((folder / s["file"]).is_file() for s in data["screenshots"])
     assert (folder / "order.json").is_file() and not (folder / "manual_review.json").exists()
     md = (folder / "report.md").read_text(encoding="utf-8")
@@ -124,4 +125,4 @@ def test_runner_calls_the_hook_after_each_stage(order):
     app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
     run_flow(RunContext(order=order, app=app, settings=Settings()), STAGES,
              after_stage=lambda stage, status: seen.append((stage.number, status)))
-    assert seen == [("1", "passed"), ("2", "not built yet")]
+    assert seen == [("1", "passed"), ("2", "passed"), ("3", "passed")]

@@ -56,8 +56,11 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   │   ├── debtor.py             stage 2: find the Debtor in Select the address (2.1–2.4)
 │   │   ├── create_debtor.py      stage 2 creation branch: fill in a New Debtor (2.5–2.9)
 │   │   ├── payment_method.py     find or create the payment method, select it (2.10)
-│   │   ├── products.py           stage 3: find each Product in Select a product (3.1–3.3)
-│   │   └── matching.py           exact-match rules for contacts, products, payment methods
+│   │   ├── products.py           stage 3: select or create each Product, then its line (3.1–3.17)
+│   │   ├── vat.py                find or create the VAT rate (3.4–3.6)
+│   │   ├── create_product.py     create a missing Product (3.7–3.11)
+│   │   ├── lines.py              Qty., U.Price, Discount per line; totals checked after each (3.13–3.16)
+│   │   └── matching.py           exact-match rules for contacts, products, payment methods, VATs
 │   └── report/
 │       └── run_report.py         runs/<time>-<reference>/: report, screenshots, manual review
 ├── scripts/
@@ -71,8 +74,8 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 └── docs/screenshots/             annotated screenshots of a run
 ```
 
-Modules for the remaining creation branches and the Invoice are added as they are built
-(see [Progress](#progress)).
+Modules for saving the Order and the Invoice (task sections 4–5) are added as they are
+built (see [Progress](#progress)).
 
 ## Development setup
 
@@ -167,27 +170,23 @@ With Fakturama running and no New Order editor open:
 
 Each stage ends with a check that reads every value back from Fakturama; the run stops at
 the first check that fails or the first case that needs a person, and leaves Fakturama as
-it is. Built so far:
+it is. Built so far, all live-tested:
 
-- stage 1: open the New Order and set Date, Cust.Ref., Net and With VAT;
-- stage 2: search Select the address, select the one exact contact (Company, First Name,
-  Name, ZIP and City all match) and check the filled-in Invoice and Delivery address;
-  two exact contacts, or the same company with other details, stop for manual review;
-- stage 3: search Select a product by SKU and select the one exact product (same Name),
-  then check that its line appeared.
+- stage 1: open the New Order and set Date, Cust.Ref., Net and With VAT (task 1.3–1.8);
+- stage 2: search Select the address and select the one exact contact (Company, First Name,
+  Name, ZIP and City), then check the filled-in Invoice and Delivery address (2.1–2.4).
+  When none matches: find or create the payment method (2.10.1–2.10.6), fill in a New
+  Debtor (2.5–2.9), select the payment method (2.10), save it once (2.11), reselect it in
+  the order and check both addresses (2.12–2.13);
+- stage 3, for each item in source order: search Select a product by exact SKU and select
+  it (3.1–3.3). When missing: find or create the VAT rate, checking Name, Value and VAT code
+  S (Standard rate) (3.4–3.6), create the Product with the gross price, save it once and
+  select it in the order (3.7–3.12). Then set Qty., U.Price and Discount on its line and
+  check that Total Net and VAT equal the completed lines so far (3.13–3.17).
 
-When no contact matches, the run cancels the selector and:
-
-1. finds the payment method in Data > terms of payment, or creates it (Name and
-   Description = the method, code from the task's mapping, 0 days, no texts, not standard),
-   checks every field, saves it once and checks what was stored (task 2.10.1–2.10.6);
-2. fills in a New Debtor (2.5–2.9): company, names, the billing address as Main address
-   with the Invoice address role, a second address with the Delivery address role when
-   billing and delivery differ, alias, 0% discount and Net; then selects the payment
-   method (2.10). Every field is read back.
-
-It stops there; the contact is not saved yet (2.11–2.13 are next). A missing product cancels Select a product and stops. The
-New Order is left open and unsaved.
+Conflicting or ambiguous matches stop for manual review. Stages 4–5 (save the Order, the
+linked Invoice and its payment) are next; until then the New Order is left open and
+unsaved.
 
 ### Run report and manual review
 
@@ -307,6 +306,25 @@ Tesseract if installed.
 - Setting UIA focus on a field in an inactive list panel does not move the keyboard focus.
   Before typing, the tool checks that the field really has the keyboard focus (clicking
   into it if needed) and refuses to type otherwise.
+- Select a product and Select the address pick a row **by themselves** as soon as the
+  search leaves one row. Typing character by character could therefore pick a product that
+  only matches the first letters. The tool sets the whole search text in one step (UIA
+  ValuePattern) and, when the selector closes itself, checks the result (the new line's
+  SKU, or the filled-in addresses) like any other selection.
+- In Select the address the column headers are centred, in the other lists left-aligned.
+  Cells are assigned to columns using the table's vertical grid lines found in the header
+  row (pixel analysis), with the header positions as fallback. OCR reads the cut-off mark
+  "…" as `• .. .`; such cells count only as a prefix match.
+- The order's item table is wider than the editor; Discount is reached by scrolling the
+  editor (its own scrollbar) and the editor is always scrolled back afterwards. Clicking a
+  cell's value opens an inline editor (a real UIA Edit), which is filled like any field;
+  Enter moves the editor down a line, so Escape follows. Its header is low-contrast, so an
+  extra OCR pass reads the header row with boosted contrast at 3x.
+- Fakturama prints the contact's company, not an address's "additional name", in the
+  order's Delivery address; that line passes when it shows the delivery name or the
+  company. Street, ZIP and City must match exactly.
+- If Fakturama warns about a duplicate contact while one is being created, the run stops
+  for manual review (nothing is saved).
 - Editors are closed with File > Close after clicking their tab (Ctrl+W is swallowed when a
   dropdown has the focus). Menu entries carry their shortcut when an editor is active
   (`Close\tCtrl+W`), so menu locators accept that suffix.
@@ -320,8 +338,8 @@ Tesseract if installed.
 | 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
 | 4 | UI helpers and `locators.yaml` | done: locators and finder, connect and waits, actions with read-back, table OCR; 5 live tests pass. Editing item-line cells moves to step 6 (needs a product line) |
 | 5 | Stage 1: open New Order | done: `main.py run` runs it from the image or JSON; live-tested |
-| 6 | Stages 2–3: select existing Debtor and Products, fill item lines | selection and exact-match rules done (live: not-found path); selecting real records and editing item lines are tested in step 8 |
+| 6 | Stages 2–3: select existing Debtor and Products, fill item lines | done: existing contact and products selected live; item lines completed with totals checked |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |
-| 8 | Create missing Debtor, Payment Method, VAT, Product | in progress: parts 1–2 done and live-tested (New Debtor filled in; Bank Transfer created, saved and selected) |
+| 8 | Create missing Debtor, Payment Method, VAT, Product | done and live-tested: contact (with delivery address), Bank Transfer, VAT 19% and both products created, saved once and reselected |
 | 9 | Run report and manual-review stops | done: report folder with checks and screenshots per stage, `manual_review.json` on every stop; live-tested |
 | 10 | README, screenshots / recording, written answers | — |

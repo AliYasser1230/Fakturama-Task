@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from image_to_cash.errors import ControlNotFound
+from image_to_cash.numbers import money, parse_amount
 from image_to_cash.ocr import Box
 from image_to_cash.ui.actions import MONTH_ABBR
 from image_to_cash.ui.grid_ocr import Grid, GridRow
@@ -17,7 +20,11 @@ PAYMENT_COLUMNS = ("Standard", "Name", "Description", "Discount", "Disc. Days", 
 NEW_PAYMENT = {"name": "", "description": "", "account": "", "payment_code": "Mutually defined ", "cash_discount": "0%",
                "discount_days": "0", "net_days": "0", "text_unpaid": "", "text_deposit": "", "text_paid": "",
                "standard": "Cash"}
-MENU_ITEMS = {("data_menu", "payments"): "payments_list"}
+MENU_ITEMS = {("data_menu", "payments"): "payments_list", ("data_menu", "vats"): "vats_list"}
+VAT_COLUMNS = ("Standard", "Name", "Description", "Value")
+NEW_VAT = {"name": "", "description": "", "vat_code": "S (Standard rate)", "value": "0%", "standard": "Tax-free"}
+NEW_PRODUCT = {"item_number": "", "name": "", "category": "", "gtin": "", "supplier_code": "", "description": "",
+               "price_gross": "$0.00", "cost_price_net": "$0.00", "vat": "Free of Tax", "stock": "0.00"}
 
 
 def grid(columns, *rows):
@@ -40,7 +47,15 @@ class FakeApp:
         self.roles = {}
         self.payment_options = list(payment_options)
         self.saved = []
+        self.last_row = None
+        self.auto_select = {}
         self.tables.setdefault(("payments_list", "table"), grid(PAYMENT_COLUMNS, ("", "Cash", "Pay Cash", "0%", "0", "0")))
+        self.tables.setdefault(("select_product", "table"), grid(PRODUCT_COLUMNS))
+        self.tables.setdefault(("vats_list", "table"), grid(VAT_COLUMNS, ("", "Tax-free", "Free of Tax", "0.00 %")))
+        self.vat_options = ["Free of Tax"]
+        self.vat_codes = {}
+        self.lines = []
+        self.line_data = []
 
     def is_open(self, screen, title=None):
         return screen in self.open
@@ -96,6 +111,7 @@ class FakeApp:
         if (screen, control) == ("main", "new_order"):
             self.open.add("order_editor")
             self.values.update({("order_editor", k): v for k, v in self.new_order.items()})
+            self._totals()
         elif (screen, control) == ("main", "nav_new_contact"):
             self.open.add("debtor_editor")
             self.values.update({("debtor_editor", k): v for k, v in NEW_DEBTOR.items()})
@@ -113,6 +129,12 @@ class FakeApp:
         elif (screen, control) in MENU_ITEMS:
             self.open.discard(screen)
             self.open.add(MENU_ITEMS[(screen, control)])
+        elif (screen, control) == ("vats_list", "create"):
+            self.open.add("vat_editor")
+            self.values.update({("vat_editor", k): v for k, v in NEW_VAT.items()})
+        elif (screen, control) == ("main", "nav_new_product"):
+            self.open.add("product_editor")
+            self.values.update({("product_editor", k): v for k, v in NEW_PRODUCT.items()})
         elif (screen, control) == ("payments_list", "create"):
             self.open.add("payment_editor")
             self.values.update({("payment_editor", k): v for k, v in NEW_PAYMENT.items()})
@@ -120,6 +142,16 @@ class FakeApp:
             self.open.add(OPENS[(screen, control)])
         elif control in ("ok", "cancel"):
             self.open.discard(screen)
+            if control == "ok" and screen == "select_address" and screen not in self.on_ok:
+                self._fill_order_addresses()
+            if control == "ok" and screen == "select_product" and screen not in self.on_ok and self.last_row:
+                row = self.last_row
+                self.lines.append(("", "1", row["Item No."], "", row["Name"], "", row["VAT"], ""))
+                self.tables[("order_editor", "items")] = grid(ITEM_COLUMNS, *self.lines)
+                rate = Decimal(row["VAT"].split()[1].rstrip("%")) if row["VAT"].startswith("VAT ") else Decimal("0")
+                self.line_data.append({"sku": row["Item No."], "qty": Decimal("1"), "disc": Decimal("0"), "vat": rate,
+                                       "unit": money(parse_amount(row["Price"]) / (1 + rate / 100))})
+                self._totals()
             if control == "ok":
                 for key, value in self.on_ok.get(screen, {}).items():
                     if isinstance(value, Grid):
@@ -145,7 +177,7 @@ class FakeApp:
         self._done("choose", screen, control, option)
         return option
 
-    def read_table(self, screen, control, title=None):
+    def read_table(self, screen, control, title=None, required=None):
         table = self.tables.get((screen, control))
         if callable(table):
             return table(self.values.get((screen, "search"), ""))
@@ -156,8 +188,25 @@ class FakeApp:
     def read_table_stable(self, screen, control, title=None, timeout=None):
         return self.read_table(screen, control, title)
 
+    def search_table(self, screen, text, timeout=None):
+        self.values[(screen, "search")] = text
+        self.calls.append(("search", screen, text))
+        auto = self.auto_select.get(screen)
+        if auto is not None:
+            self.last_row = auto
+            self.click(screen, "ok")
+            return None
+        return self.read_table(screen, "table")
+
     def click_row(self, row, *, double=False):
+        self.last_row = dict(row.cells)
         self.calls.append(("click_row", dict(row.cells), double))
+        if double and "Value" in row.cells:
+            self.open.add("vat_editor")
+            name = row.cells["Name"]
+            self.values.update({("vat_editor", "name"): name, ("vat_editor", "description"): row.cells["Description"],
+                                ("vat_editor", "vat_code"): self.vat_codes.get(name, "S (Standard rate)"),
+                                ("vat_editor", "value"): row.cells["Value"]})
 
     def select_tab(self, screen, control, title=None):
         if screen == "debtor_editor" and control == "tab_main_address":
@@ -181,17 +230,82 @@ class FakeApp:
             self.values[self._key("debtor_editor", "address_type")] = shown
         self._done("press", keys)
 
+    def check_no_dialog(self, doing):
+        dialog = self.after.get(("dialog", doing))
+        if dialog:
+            from image_to_cash.errors import ManualReviewRequired
+            raise ManualReviewRequired(f"Fakturama showed {dialog[0]!r} while {doing}: {dialog[1]}")
+
     def click_when(self, screen, control, title=None, timeout=None):
         self.click(screen, control, title)
 
     def options(self, screen, control, title=None):
         if (screen, control) == ("debtor_editor", "payment"):
             return list(self.payment_options)
+        if (screen, control) == ("product_editor", "vat"):
+            return list(self.vat_options)
         return []
 
+    def close_editor(self, screen, timeout=None, title=None):
+        self.open.discard(screen)
+        self._done("close_editor", screen, title)
+
     def save(self, screen, title=None, *, saved_title=None, timeout=None):
-        self.saved.append((screen, saved_title))
         if screen == "payment_editor":
             self.payment_options.append(self.values[("payment_editor", "description")])
+        elif screen == "vat_editor":
+            v = lambda key: self.values[("vat_editor", key)]
+            rows = self.tables[("vats_list", "table")].rows
+            self.tables[("vats_list", "table")] = grid(VAT_COLUMNS, *[tuple(r.cells.values()) for r in rows],
+                                                       ("", v("name"), v("description"), f"{v('value').rstrip('%')}.00 %"))
+            self.vat_codes[v("name")] = v("vat_code")
+            self.vat_options.append(v("description"))
+        elif screen == "product_editor":
+            v = lambda key: self.values[("product_editor", key)]
+            rows = [tuple(r.cells.values()) for r in self.tables[("select_product", "table")].rows]
+            rows.append((v("item_number"), v("name"), v("description"), "0", v("price_gross"), v("vat")))
+            self.tables[("select_product", "table")] = grid(PRODUCT_COLUMNS, *rows)
+            saved_title = saved_title or v("name")
+        elif screen == "debtor_editor":
+            v = lambda key: self.values[("debtor_editor", key)]
+            row = (v("customer_id"), v("first_name"), v("last_name"), v("company"), v("main.zip"), v("main.city"))
+            self.tables[("select_address", "table")] = grid(ADDRESS_COLUMNS, row)
+            saved_title = saved_title or v("company")
+        self.saved.append((screen, saved_title))
+        self.open.discard(screen)
         self._done("save", screen, saved_title)
         return saved_title
+
+    def _fill_order_addresses(self):
+        v = lambda key: self.values.get(("debtor_editor", key), "")
+        invoice = [v("company"), f"{v('first_name')} {v('last_name')}", v("main.street"),
+                   f"{v('main.zip')} {v('main.city')}", v("main.country")]
+        self.values[("order_editor", "address")] = "\n".join(invoice)
+        self.present.add(("order_editor", "tab_invoice_address"))
+        if v("additional.street"):
+            delivery = [v("company"), v("additional.additional_name"), v("additional.street"),
+                        f"{v('additional.zip')} {v('additional.city')}", v("additional.country")]
+            self.values[("order_editor", "delivery_address")] = "\n".join(delivery)
+            self.present.add(("order_editor", "tab_delivery_address"))
+
+
+    def _totals(self):
+        net = sum((money(l["qty"] * l["unit"] * (1 - l["disc"] / 100)) for l in self.line_data), Decimal("0"))
+        vat = sum((money(money(l["qty"] * l["unit"] * (1 - l["disc"] / 100)) * l["vat"] / 100) for l in self.line_data),
+                  Decimal("0"))
+        self.values[("order_editor", "subtotal")] = f"${net:.2f}"
+        self.values[("order_editor", "vat_total")] = f"${vat:.2f}"
+        self.values[("order_editor", "total")] = f"${net + vat:.2f}"
+
+    def set_line_cell(self, screen, control, key, column, text, *, check, left_of_key=False):
+        line = next((l for l in self.line_data if l["sku"] == key), None)
+        if line is None:
+            raise ControlNotFound(f"no line {key}")
+        field = {"Qty.": "qty", "U.Price": "unit", "Discount": "disc"}[column]
+        line[field] = Decimal(text)
+        self._totals()
+        self._done("set_line_cell", key, column, text)
+        if not check(text):
+            from image_to_cash.errors import VerificationFailed
+            raise VerificationFailed(f"{column} of {key} shows {text!r}")
+        return text

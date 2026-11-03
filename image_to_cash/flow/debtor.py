@@ -1,26 +1,34 @@
 from __future__ import annotations
 
-from image_to_cash.errors import ManualReviewRequired, NotBuiltYet
+from image_to_cash.errors import ManualReviewRequired
 from image_to_cash.extract.schema import OrderData
 from image_to_cash.flow.create_debtor import debtor_checks, fill_new_debtor
 from image_to_cash.flow.matching import CREATE, REVIEW, SELECT, Decision, address_parts, decide_debtor, text_contains
 from image_to_cash.flow.payment_method import ensure_payment_method, select_payment
 from image_to_cash.flow.runner import Check, RunContext, StageResult, gate
+from image_to_cash.ui.grid_ocr import cell_matches
 
 EDITOR = "order_editor"
+DEBTOR = "debtor_editor"
 DIALOG = "select_address"
 STAGE = ("2", "Select or create the Debtor")
+
+
+AUTO_SELECTED = "Fakturama selected the only contact matching the search itself"
 
 
 def search_debtor(app, order: OrderData) -> Decision:
     app.click(EDITOR, "select_address")
     app.wait_open(DIALOG)
-    app.type(DIALOG, "search", order.debtor.search_text, commit="")
-    grid = app.read_table_stable(DIALOG, "table")
+    grid = app.search_table(DIALOG, order.debtor.search_text)
+    if grid is None:
+        return Decision(SELECT, AUTO_SELECTED)
     return decide_debtor(grid, order.debtor, order.billing_address)
 
 
 def choose_row(app, decision: Decision) -> None:
+    if decision.row is None:
+        return
     app.click_row(decision.row)
     app.click(DIALOG, "ok")
     app.wait_closed(DIALOG)
@@ -43,9 +51,14 @@ def address_checks(app, order: OrderData) -> list[Check]:
     if app.exists(EDITOR, "tab_delivery_address"):
         app.click(EDITOR, "tab_delivery_address")
         delivery = app.read(EDITOR, "delivery_address")
+        shown = " / ".join(delivery.splitlines())
+        company = order.debtor.company or ""
         for label, value in address_parts(order.delivery_address):
-            checks.append(Check(f"Delivery address {label}", value, " / ".join(delivery.splitlines()),
-                                text_contains(delivery, value)))
+            if label == "name" and company and not text_contains(delivery, value):
+                checks.append(Check("Delivery address name (Fakturama prints the company)", f"{value} or {company}",
+                                    shown, text_contains(delivery, company)))
+                continue
+            checks.append(Check(f"Delivery address {label}", value, shown, text_contains(delivery, value)))
         app.click(EDITOR, "tab_invoice_address")
     else:
         same = order.delivery_same_as_billing
@@ -70,9 +83,21 @@ def select_debtor(ctx: RunContext) -> StageResult:
     payment = ensure_payment_method(app, order.payment.method)
     customer_id = fill_new_debtor(app, order)
     filled = debtor_checks(app, order, customer_id) + [select_payment(app, order.payment.method)]
-    done = gate(*STAGE, payment + filled, notes=[decision.reason,
-                "payment method resolved before New Contact: Fakturama 2.2.0 fills the contact's Payment "
-                "list when the contact editor opens"])
-    raise NotBuiltYet(f"{decision.reason}; new contact {customer_id} is filled in with payment "
-                      f"{order.payment.method.value!r} (task 2.5-2.10) but not saved: saving and reselecting it "
-                      f"(2.11-2.13) come next in step 8", done)
+    gate(*STAGE, payment + filled)
+
+    saved = app.save(DEBTOR, saved_title=None)
+    app.activate(EDITOR)
+    again = search_debtor(app, order)
+    if again.action != SELECT:
+        cancel(app)
+        raise ManualReviewRequired(f"the new contact {customer_id} was saved as {saved!r}, but Select the address "
+                                   f"does not show it as the one exact match: {again.reason}")
+    choose_row(app, again)
+    shown_id = again.row.cells.get("No.", "") if again.row is not None else AUTO_SELECTED
+    reselected = [Check("new contact saved", customer_id, saved, True),
+                  Check("new contact reselected in the order", customer_id, shown_id,
+                        again.row is None or cell_matches(shown_id, customer_id))]
+    return gate(*STAGE, payment + filled + reselected + address_checks(app, order), notes=[
+        decision.reason, f"created contact {customer_id} (saved as {saved!r}) and selected it in the order",
+        "payment method resolved before New Contact: Fakturama 2.2.0 fills the contact's Payment "
+        "list when the contact editor opens"])

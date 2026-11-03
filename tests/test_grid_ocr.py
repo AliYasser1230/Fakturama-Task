@@ -132,3 +132,78 @@ def test_inverted_pass_only_adds_words_that_are_new():
     plain = [W("Tax-free", 100, 25)]
     inverted = [W("Tax-free", 101, 25), W("Free", 200, 25)]
     assert [w.text for w in merge_words(plain, inverted)] == ["Tax-free", "Free"]
+
+
+def _image(name):
+    from PIL import Image
+
+    return Image.open(FIXTURES / f"{name}.png")
+
+
+def test_column_lines_are_found_in_real_tables():
+    from image_to_cash.ui.grid_ocr import column_lines
+
+    address = parse_grid(_captured("address_table"), ADDRESS_COLUMNS)
+    assert [round(x) for x in column_lines(_image("address_table"), address.header)] == [39, 139, 239, 339, 439, 539, 639, 739]
+    vats = parse_grid(_captured("vats_list_table"), ["Standard", "Name", "Description", "Value"])
+    assert [round(x) for x in column_lines(_image("vats_list_table"), vats.header)] == [99, 199, 299, 399]
+
+
+def test_centred_headers_are_read_with_the_column_lines():
+    from image_to_cash.ui.grid_ocr import column_lines
+
+    image = _image("address_table")
+    grid = parse_grid(_captured("address_table"), ADDRESS_COLUMNS, line_finder=lambda h: column_lines(image, h))
+    row = grid.rows[0].cells
+    assert (row["First Name"], row["Name"], row["ZIP"], row["City"]) == ("Marta", "Klein", "10117", "Berlin")
+    assert cell_matches(row["No."], "CUST000001") == "exact"
+    assert cell_matches(row["Company"], "Northstar Office GmbH") == "truncated"
+
+    without_lines = parse_grid(_captured("address_table"), ADDRESS_COLUMNS)
+    assert without_lines.rows[0].cells["ZIP"] != "10117"
+
+
+def test_real_address_table_selects_the_saved_contact():
+    from image_to_cash.extract.schema import Address, Debtor
+    from image_to_cash.flow.matching import SELECT, decide_debtor
+    from image_to_cash.ui.grid_ocr import column_lines
+
+    image = _image("address_table")
+    grid = parse_grid(_captured("address_table"), ADDRESS_COLUMNS, line_finder=lambda h: column_lines(image, h))
+    decision = decide_debtor(grid, Debtor(company="Northstar Office GmbH", first_name="Marta", last_name="Klein"),
+                             Address(street="Friedrichstrasse 88", zip="10117", city="Berlin", country="Germany"))
+    assert decision.action == SELECT and decision.truncated == ("Company",)
+
+
+def test_two_headers_between_the_same_lines_fall_back_to_header_positions():
+    from image_to_cash.ui.grid_ocr import column_spans
+
+    headers = [("A", Box(10, 0, 10, 10)), ("B", Box(30, 0, 10, 10))]
+    assert column_spans(headers, [0.0, 100.0]) is None
+    assert column_spans(headers, [0.0, 25.0, 100.0]) == [("A", 0.0, 25.0), ("B", 25.0, 100.0)]
+
+
+@pytest.mark.parametrize("shown, result", [
+    ("Northstar Office • .. .", "truncated"),
+    ("Northstar Office •", "truncated"),
+    ("Northstar Office ..", "truncated"),
+    ("Northstar Office.", None),
+    ("No...", None),
+])
+def test_ocr_versions_of_the_cut_off_marker(shown, result):
+    assert cell_matches(shown, "Northstar Office GmbH") == result
+
+
+def test_cells_of_an_order_line_are_found_in_the_real_items_table():
+    from image_to_cash.ui.grid_ocr import cell_word, line_row, row_at
+
+    rows = visual_rows(_captured("items_table"))
+    row = line_row(rows, "CHR-ERG-01")
+    assert row is not None
+    qty = cell_word(rows, row, "Qty.", key="CHR-ERG-01", left_of_key=True)
+    assert qty.text == "1.00"
+    price = cell_word(rows, row, "U.Price")
+    assert price.text == "S250.oo"
+    assert cell_word(rows, row, "Discount") is None
+    assert row_at(rows, row[0].box.center[1]) is row
+    assert line_row(rows, "XX-NOT-THERE") is None

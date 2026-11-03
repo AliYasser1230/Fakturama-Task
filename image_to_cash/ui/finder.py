@@ -8,6 +8,7 @@ from image_to_cash.errors import ControlNotFound
 from image_to_cash.ui.locators import Locator, Locators, Scope
 
 GRID_FILLER = {"ScrollBar", "Thumb"}
+CELL_EDITORS = {"Edit", "ComboBox"}
 MIN_GRID_HEIGHT = 60
 
 
@@ -73,7 +74,9 @@ def is_grid(node: Node) -> bool:
     r = node.rect
     if not r or r[3] - r[1] < MIN_GRID_HEIGHT:
         return False
-    return all(c.control_type in GRID_FILLER for c in node.children())
+    kids = node.children()
+    editors = [c for c in kids if c.control_type in CELL_EDITORS]
+    return len(editors) <= 1 and all(c.control_type in GRID_FILLER or c in editors for c in kids)
 
 
 def matches(node: Node, control_type: str, name: str | None = None, name_re: str | None = None) -> bool:

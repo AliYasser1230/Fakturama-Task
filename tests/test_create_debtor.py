@@ -104,3 +104,11 @@ def test_roles_for(order):
     assert roles_for(order) == [("main", ("Invoice address",)), ("additional", ("Delivery address",))]
     same = order.model_copy(update={"delivery_address": order.billing_address})
     assert roles_for(same) == [("main", ("Invoice address", "Delivery address"))]
+
+
+def test_fakturamas_duplicate_contact_message_stops_before_saving(order):
+    app = FakeApp(after={("dialog", "entering the contact's street"): (
+        "Duplicate Contact", "There is already a contact with the same name and street: Marta Klein; Friedrichstrasse 88")})
+    with pytest.raises(ManualReviewRequired, match="Duplicate Contact.*Friedrichstrasse 88"):
+        fill_new_debtor(app, order)
+    assert app.saved == []

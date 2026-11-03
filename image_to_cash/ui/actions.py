@@ -199,6 +199,12 @@ def set_text(
     return shown[0]
 
 
+def put_value(node: UiaNode, text: str) -> None:
+    if not node.enabled:
+        raise VerificationFailed(f"{node} is disabled")
+    _pattern(node, "Value").SetValue(text)
+
+
 def list_items(combo: UiaNode) -> list[UiaNode]:
     items = []
     for child in fresh(combo).children():

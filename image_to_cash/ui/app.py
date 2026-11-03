@@ -8,12 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from image_to_cash.errors import ControlNotFound, FlowStopped, ManualReviewRequired
+from image_to_cash.errors import ControlNotFound, FlowStopped, ManualReviewRequired, VerificationFailed
 from image_to_cash.settings import Settings
 from image_to_cash.ui import actions
 from image_to_cash.ui.finder import Node, UiaNode, locate, preorder, resolve, scope_root
 from image_to_cash.ui.locators import Locators, Scope, load_locators
-from image_to_cash.ui.grid_ocr import Grid, GridRow, click_row, read_grid
+from image_to_cash.ui.grid_ocr import (Grid, GridRow, capture_words, cell_word, click_row, line_row,
+                                       read_grid, row_at, visual_rows)
 from image_to_cash.ui.waits import wait_stable, wait_until
 
 
@@ -151,6 +152,16 @@ class Fakturama:
                 return [n for n in names if n != START_PAGE]
         return []
 
+    def dialogs(self) -> list[actions.DialogInfo]:
+        return [actions.dialog_info(d) for d in actions.open_dialogs(self.root())]
+
+    def check_no_dialog(self, doing: str) -> None:
+        shown = self.dialogs()
+        if shown:
+            first = shown[0]
+            text = " ".join(" ".join(first.texts).split())
+            raise ManualReviewRequired(f"Fakturama showed {first.title!r} while {doing}: {text}")
+
     def screenshot(self, path: str | Path) -> None:
         self.bring_to_front()
         self.window.capture_as_image().save(str(path))
@@ -219,14 +230,19 @@ class Fakturama:
         actions.ensure_foreground(item)
         item.wrapper().click_input()
         wait_until(lambda: self.find("main", "save").enabled, timeout=5, what="the toolbar Save button to be enabled")
-        actions.click(self.find("main", "save"))
         names = {saved_title, actions.editor_title(before)} - {None}
+        others = [n for n in self.editor_tab_names() if n != before]
+        actions.click(self.find("main", "save"))
 
         def saved_or_asked():
-            tabs = {n.name for n in preorder(self.root()) if n.control_type == "TabItem"}
+            tabs = self.editor_tab_names()
             for name in names:
                 if name in tabs and f"*{name}" not in tabs:
                     return name
+            if before not in tabs:
+                renamed = [n for n in tabs if n not in others and not actions.is_dirty(n)]
+                if len(renamed) == 1:
+                    return renamed[0]
             dialogs = actions.open_dialogs(self.root())
             return dialogs[0] if dialogs else None
 
@@ -246,9 +262,27 @@ class Fakturama:
         except ControlNotFound:
             return False
 
-    def read_table(self, screen: str, control: str, title: str | None = None) -> Grid:
+    def read_table(self, screen: str, control: str, title: str | None = None,
+                   required: tuple[str, ...] | None = None) -> Grid:
         columns = self.locators.control(screen, control).columns
-        return read_grid(self.find(screen, control, title), columns, lang=self.settings.ocr_language)
+        self.park_mouse()
+        return read_grid(self.find(screen, control, title), columns, required=required,
+                         lang=self.settings.ocr_language)
+
+    def search_table(self, screen: str, text: str, timeout: float | None = None) -> Grid | None:
+        actions.put_value(self.find(screen, "search"), text)
+
+        def state():
+            if not self.is_open(screen):
+                return ("closed",)
+            return ("open", actions.read_value(self.find(screen, "search")), self.read_table(screen, "table").signature())
+
+        final = wait_stable(state, timeout=timeout or self.settings.ui_timeout, what=f"{screen} search", settle=1.0)
+        if final == ("closed",):
+            return None
+        if not actions.same_text(final[1], text):
+            raise VerificationFailed(f"put {text!r} into the {screen} search, but it shows {final[1]!r}")
+        return self.read_table(screen, "table")
 
     def read_table_stable(self, screen: str, control: str, title: str | None = None,
                           timeout: float | None = None) -> Grid:
@@ -339,3 +373,91 @@ class Fakturama:
         else:
             actions.press_dialog_button(outcome, actions.DISCARD_BUTTON)
         wait_until(closed, timeout=timeout, what=f"{tab_title!r} to close")
+
+    def park_mouse(self) -> None:
+        from pywinauto import mouse
+
+        r = self.window.rectangle()
+        mouse.move(coords=(r.left + (r.right - r.left) // 2, r.top + 8))
+        time.sleep(0.2)
+
+    def table_rows(self, screen: str, control: str) -> list:
+        self.bring_to_front()
+        self.park_mouse()
+        words, _ = capture_words(self.find(screen, control), lang=self.settings.ocr_language)
+        return visual_rows(words)
+
+    def _hscroll(self, screen: str, control: str) -> UiaNode | None:
+        tab = self.activate(screen)
+        grid = self.find(screen, control).rect
+        bars = [n for n in preorder(tab) if n.control_type == "ScrollBar" and n.name == "Horizontal" and n.visible
+                and not (grid[0] <= n.rect[0] and n.rect[2] <= grid[2] and grid[1] <= n.rect[1] and n.rect[3] <= grid[3])]
+        return min(bars, key=lambda b: abs(b.rect[1] - grid[3])) if bars else None
+
+    def _scroll_position(self, bar: UiaNode) -> tuple[float, float]:
+        from pywinauto.uia_defines import get_elem_interface
+
+        pattern = get_elem_interface(bar.info.element, "RangeValue")
+        return float(pattern.CurrentValue), float(pattern.CurrentMinimum)
+
+    def _press_scroll(self, screen: str, control: str, button: str) -> bool:
+        bar = self._hscroll(screen, control)
+        target = next((c for c in bar.children() if c.control_type == "Button" and c.name == button), None) if bar else None
+        if target is None or not target.enabled:
+            return False
+        actions.ensure_foreground(target)
+        target.wrapper().click_input()
+        time.sleep(0.4)
+        return True
+
+    def scroll_home(self, screen: str, control: str) -> None:
+        for _ in range(12):
+            bar = self._hscroll(screen, control)
+            if bar is None:
+                return
+            value, minimum = self._scroll_position(bar)
+            if value <= minimum:
+                return
+            if not (self._press_scroll(screen, control, "Page left") or self._press_scroll(screen, control, "Column left")):
+                return
+        raise VerificationFailed(f"could not scroll {screen} back to the start")
+
+    def set_line_cell(self, screen: str, control: str, key: str, column: str, text: str, *,
+                      check: Any, left_of_key: bool = False) -> str:
+        rows = self.table_rows(screen, control)
+        row = line_row(rows, key)
+        if row is None:
+            raise ControlNotFound(f"no single line with {key!r} in {screen}.{control}")
+        y = sum(w.box.center[1] for w in row) / len(row)
+        right_edge = self.window.rectangle().right - 8
+        target = None
+        try:
+            for _ in range(4):
+                row = row_at(rows, y)
+                target = cell_word(rows, row, column, key, left_of_key) if row else None
+                if target is not None and target.box.right < right_edge:
+                    break
+                target = None
+                if not self._press_scroll(screen, control, "Page right"):
+                    break
+                rows = self.table_rows(screen, control)
+            if target is None:
+                raise ControlNotFound(f"column {column!r} of the line {key!r} is not visible")
+            from pywinauto import mouse
+
+            actions.ensure_foreground(self.root())
+            mouse.click(coords=(int(target.box.center[0]), int(target.box.center[1])))
+            grid = self.find(screen, control)
+            editor = wait_until(lambda: next((n for n in preorder(UiaNode(grid.info)) if n.control_type == "Edit"
+                                              and actions.has_focus(n)), None),
+                                timeout=5, what=f"the editor of {column!r} on line {key!r}")
+            shown = actions.set_text(editor, text, check=check, commit="")
+            actions.send_keys("{ENTER}")
+            time.sleep(0.3)
+            grid = self.find(screen, control)
+            if any(n.control_type == "Edit" and actions.has_focus(n) for n in preorder(UiaNode(grid.info))):
+                actions.send_keys("{ESC}")
+                time.sleep(0.3)
+            return shown
+        finally:
+            self.scroll_home(screen, control)

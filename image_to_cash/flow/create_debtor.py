@@ -76,8 +76,10 @@ def set_roles(app, roles: tuple[str, ...]) -> None:
 def fill_address(app, address: Address, debtor: Debtor, roles: tuple[str, ...], *, main: bool) -> None:
     for control, value in address_fields(address, debtor, main=main).items():
         app.type(EDITOR, control, value)
+        app.check_no_dialog(f"entering the contact's {control}")
     app.choose(EDITOR, "country", address.country)
     set_roles(app, roles)
+    app.check_no_dialog("entering the contact's address")
 
 
 def fill_new_debtor(app, order: OrderData) -> str:

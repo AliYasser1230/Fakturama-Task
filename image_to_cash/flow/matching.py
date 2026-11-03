@@ -105,3 +105,27 @@ def decide_payment(grid: Grid, method: str) -> Decision:
     if exact:
         return Decision(SELECT, f"terms of payment already has {method!r}", exact[0])
     return Decision(CREATE, f"no terms-of-payment entry named {method!r}")
+
+
+def decide_vat(grid: Grid, name: str, percent: str) -> Decision:
+    rows = [r for r in grid.rows if cell_matches(r.cells.get("Name", ""), name)]
+    if not rows:
+        return Decision(CREATE, f"no VAT named {name!r}")
+    if len(rows) > 1:
+        return Decision(REVIEW, f"{len(rows)} VATs named {name!r}")
+    value = rows[0].cells.get("Value", "")
+    if not percent_matches(value, percent):
+        return Decision(REVIEW, f"VAT {name!r} exists with Value {value!r}, not {percent}%")
+    return Decision(SELECT, f"VAT {name!r} exists with Value {value!r}", rows[0])
+
+
+def percent_matches(shown: str, percent: str) -> bool:
+    from decimal import Decimal, InvalidOperation
+
+    for text in (shown, shown.replace("96", "%").replace("0/0", "%")):
+        try:
+            if Decimal(text.replace("%", "").replace(",", ".").strip()) == Decimal(percent):
+                return True
+        except InvalidOperation:
+            continue
+    return False

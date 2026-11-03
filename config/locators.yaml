@@ -142,6 +142,7 @@ vat_editor:
     description: {type: Edit, name: Description}
     vat_code: {type: ComboBox, name: VAT code (E-Invoice)}
     value: {type: Edit, name: Value}
+    standard: {type: Edit, after: {name: Standard}}
 
 product_editor:
   scope: {tab: '\*?New product'}

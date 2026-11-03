@@ -60,16 +60,16 @@ def test_final_check_catches_a_field_that_changed_afterwards(order):
     assert failed == ["Cust.Ref."]
 
 
-def test_run_flow_on_an_empty_fakturama_stops_where_creation_starts(order):
+def test_run_flow_on_an_empty_fakturama_creates_contact_vat_and_products(order):
     app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
     result = run_flow(_ctx(order, app), STAGES)
-    assert [r.stage for r in result.completed] == ["1"]
-    assert result.stopped_at.number == "2" and result.kind == "not built yet"
-    assert "step 8" in result.reason
-    assert ("click", "select_address", "cancel") in app.calls
+    assert result.ok and [r.stage for r in result.completed] == ["1", "2", "3"]
+    assert [s.number for s in result.not_built] == ["4", "5"]
+    assert [s[0] for s in app.saved] == ["payment_editor", "debtor_editor", "vat_editor", "product_editor", "product_editor"]
+    assert app.values[("order_editor", "subtotal")] == "$570.00" and app.values[("order_editor", "total")] == "$678.30"
     lines = format_run(result)
-    assert lines[0] == "Stage 1 - Open the New Order: passed"
-    assert "Stage 2 - Select or create the Debtor: STOPPED (not built yet)" in lines
+    assert "Stage 3 - Select or create each Product: passed" in lines
+    assert "Stage 4 - Complete and save the Order: not built yet" in lines
 
 
 def test_stages_without_code_are_listed_as_not_built(order):

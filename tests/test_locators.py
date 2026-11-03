@@ -136,9 +136,16 @@ def test_within_limits_the_search_to_one_container():
 def test_grid_is_an_empty_pane_with_only_scrollbars():
     table = {"control_type": "Pane", "rect": [0, 100, 500, 400], "children": [_n("ScrollBar", "Vertical")]}
     small = {"control_type": "Pane", "rect": [0, 0, 500, 20]}
-    filled = {"control_type": "Pane", "rect": [0, 0, 500, 400], "children": [_n("Edit")]}
-    root = DictNode(_tree(small, filled, table))
+    form = {"control_type": "Pane", "rect": [0, 0, 500, 400], "children": [_n("Text", "Name"), _n("Edit")]}
+    two_fields = {"control_type": "Pane", "rect": [0, 0, 500, 400], "children": [_n("Edit"), _n("Edit")]}
+    root = DictNode(_tree(small, form, two_fields, table))
     assert resolve(root, Locator(type="Grid")).rect == (0, 100, 500, 400)
+
+
+def test_grid_with_an_open_cell_editor_is_still_a_grid():
+    editing = {"control_type": "Pane", "rect": [0, 100, 500, 400],
+               "children": [_n("Edit", value="1.00"), _n("ScrollBar", "Horizontal")]}
+    assert resolve(DictNode(_tree(editing)), Locator(type="Grid")).rect == (0, 100, 500, 400)
 
 
 def test_name_re_matches_the_whole_name():
