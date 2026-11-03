@@ -42,7 +42,7 @@ def test_probe_lists_controls_that_are_not_visible_now(locators):
 
 def test_format_probe(locators):
     lines = format_probe(probe_tree(_recording("12_invoice_editor"), locators, ["invoice_editor"]))
-    assert lines[0] == "invoice_editor: 14/14 found"
+    assert lines[0] == "invoice_editor: 17/21 found"
     assert any(line.strip().startswith("ok  paid") for line in lines)
 
 

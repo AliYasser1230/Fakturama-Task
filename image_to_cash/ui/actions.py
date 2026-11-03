@@ -19,7 +19,7 @@ LVM_GETITEMSTATE = 0x1000 + 44
 LVIS_STATEIMAGEMASK = 0xF000
 CHECKED_STATE_IMAGE = 2
 MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-US_DATE = re.compile(r"^([A-Z][a-z]{2}) (\d{1,2}), (\d{4})$")
+US_DATE = re.compile(r"^([A-Z][a-z]{2}) (\d{1,2}),? (\d{4})$")
 DOTTED_DATE = re.compile(r"^(\d{1,2})\.(\d{1,2})\.(\d{4})$")
 
 

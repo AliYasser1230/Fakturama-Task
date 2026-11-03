@@ -39,21 +39,20 @@ def _run(tmp_path, order, app, stages=STAGES, capture=_fake_png, open_editors=No
     return result, folder, json.loads((folder / "report.json").read_text(encoding="utf-8"))
 
 
-def test_partial_run_writes_report_order_and_screenshots_but_no_review(tmp_path, order):
+def test_completed_run_writes_report_order_and_screenshots_but_no_review(tmp_path, order):
     app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
-    result, folder, data = _run(tmp_path, order, app, open_editors=["*New Order", "*New Debtor", "Bank Transfer"])
+    result, folder, data = _run(tmp_path, order, app, open_editors=["PO000001", "INV000001"])
     assert folder.name == "20261103-153007-WEB-2026-0714-A17"
-    assert data["outcome"] == "partial"
-    assert [(s["stage"], s["status"]) for s in data["stages"]] == [("1", "passed"), ("2", "passed"), ("3", "passed")]
-    assert data["not_built"] == ["4 Complete and save the Order", "5 Complete and verify the linked Invoice"]
-    assert len(data["stages"][0]["checks"]) == 6 and all(c["ok"] for c in data["stages"][0]["checks"])
-    assert data["stopped"] is None
-    assert [s["label"] for s in data["screenshots"]] == ["start", "stage1_passed", "stage2_passed", "stage3_passed"]
+    assert data["outcome"] == "completed"
+    assert [(s["stage"], s["status"]) for s in data["stages"]] == [(n, "passed") for n in "12345"]
+    assert data["stopped"] is None and data["not_built"] == []
+    assert len(data["stages"][0]["checks"]) == 6 and all(c["ok"] for s in data["stages"] for c in s["checks"])
+    assert [s["label"] for s in data["screenshots"]] == ["start"] + [f"stage{n}_passed" for n in "12345"]
     assert all((folder / s["file"]).is_file() for s in data["screenshots"])
     assert (folder / "order.json").is_file() and not (folder / "manual_review.json").exists()
     md = (folder / "report.md").read_text(encoding="utf-8")
-    assert "- Outcome: **partial**" in md and "Stage 1 - Open the New Order: passed" in md
-    assert "Open editors left in Fakturama: *New Order, *New Debtor, Bank Transfer" in md
+    assert "- Outcome: **completed**" in md and "Stage 5 - Complete and verify the linked Invoice: passed" in md
+    assert "Open editors left in Fakturama: PO000001, INV000001" in md
 
 
 def test_manual_review_stop_writes_what_a_person_needs(tmp_path, order):
@@ -125,4 +124,4 @@ def test_runner_calls_the_hook_after_each_stage(order):
     app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
     run_flow(RunContext(order=order, app=app, settings=Settings()), STAGES,
              after_stage=lambda stage, status: seen.append((stage.number, status)))
-    assert seen == [("1", "passed"), ("2", "passed"), ("3", "passed")]
+    assert seen == [(n, "passed") for n in "12345"]

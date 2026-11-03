@@ -178,7 +178,7 @@ def test_fakturama_selecting_the_right_product_itself_is_accepted(order):
     app.auto_select["select_product"] = dict(zip(PRODUCT_COLUMNS, EXISTING[0]))
     with pytest.raises(ManualReviewRequired, match="order line for MAT-DESK-02"):
         add_products(_ready(app, order))
-    assert app.lines[0][2] == "CHR-ERG-01"
+    assert app.line_data[0]["sku"] == "CHR-ERG-01"
     assert ("click", "select_product", "cancel") not in app.calls
 
 

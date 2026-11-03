@@ -1,5 +1,6 @@
 import sys
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
@@ -60,16 +61,43 @@ def test_final_check_catches_a_field_that_changed_afterwards(order):
     assert failed == ["Cust.Ref."]
 
 
-def test_run_flow_on_an_empty_fakturama_creates_contact_vat_and_products(order):
+def test_full_run_on_an_empty_fakturama_ends_with_a_saved_paid_invoice(order):
     app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
     result = run_flow(_ctx(order, app), STAGES)
-    assert result.ok and [r.stage for r in result.completed] == ["1", "2", "3"]
-    assert [s.number for s in result.not_built] == ["4", "5"]
-    assert [s[0] for s in app.saved] == ["payment_editor", "debtor_editor", "vat_editor", "product_editor", "product_editor"]
-    assert app.values[("order_editor", "subtotal")] == "$570.00" and app.values[("order_editor", "total")] == "$678.30"
-    lines = format_run(result)
-    assert "Stage 3 - Select or create each Product: passed" in lines
-    assert "Stage 4 - Complete and save the Order: not built yet" in lines
+    assert result.ok and not result.not_built, format_run(result)
+    assert [r.stage for r in result.completed] == ["1", "2", "3", "4", "5"]
+    assert [s[0] for s in app.saved] == ["payment_editor", "debtor_editor", "vat_editor", "product_editor",
+                                         "product_editor", "order_editor", "invoice_editor"]
+    assert app.documents[0][:5] == ("PO000001", "Jul 14, 2026", "Northstar Office GmbH", "WEB-2026-0714-A17", "open")
+    assert app.documents[1][4] == "paid" and app.documents[1][5] == "$678.30"
+    assert app.values[("invoice_editor", "paid_date")] == "Jul 18, 2026"
+    invoice = result.completed[-1]
+    assert "Invoice in Documents: State" in [c.what for c in invoice.checks]
+    assert "Order (still open) in Documents: State" in [c.what for c in invoice.checks]
+
+
+def test_an_unpaid_order_leaves_paid_clear(order):
+    unpaid = order.model_copy(update={"payment": order.payment.model_copy(update={"paid_status": "UNPAID", "payment_date": None})})
+    app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
+    result = run_flow(_ctx(unpaid, app), STAGES)
+    assert result.ok, format_run(result)
+    assert app.values[("invoice_editor", "paid")] is False
+    assert ("invoice_editor", "paid_date") not in app.values
+    assert app.documents[1][4] == "open"
+
+
+def test_a_payment_method_the_invoice_does_not_offer_needs_review(order):
+    from image_to_cash.flow.invoice import complete_invoice
+
+    app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
+    ctx = _ctx(order, app)
+    for stage in STAGES[:4]:
+        stage.run(ctx)
+    app.values[("invoice_editor", "payment")] = "Pay Cash"
+    app.payment_options = ["Pay Cash"]
+    with pytest.raises(ManualReviewRequired, match="does not offer 'Bank Transfer'"):
+        complete_invoice(ctx)
+    assert ("invoice_editor", "INV000001") not in app.saved
 
 
 def test_stages_without_code_are_listed_as_not_built(order):
@@ -105,3 +133,17 @@ def test_run_flow_reports_a_failed_check_with_its_details(order):
 def test_cli_run_needs_windows(capsys, sample_image, sample_raw_path):
     assert main.main(["run", str(sample_image), "--raw", str(sample_raw_path)]) == 2
     assert "Windows" in capsys.readouterr().err
+
+
+def test_a_line_that_differs_from_the_image_stops_the_order_before_saving(order):
+    from image_to_cash.flow.runner import GateFailed
+
+    app = FakeApp(tables={("select_address", "table"): grid(ADDRESS_COLUMNS)})
+    ctx = _ctx(order, app)
+    for stage in STAGES[:3]:
+        stage.run(ctx)
+    app.line_data[1]["qty"] = Decimal("5")
+    app._totals()
+    with pytest.raises(GateFailed, match="order line MAT-DESK-02 Qty."):
+        STAGES[3].run(ctx)
+    assert ("order_editor", "PO000001") not in app.saved

@@ -307,3 +307,26 @@ def cell_word(rows: list[list[OcrWord]], row: list[OcrWord], column: str, key: s
     right = min(following) - 4 if following else float("inf")
     cells = [w for w in row if box.left - CELL_PAD <= w.box.center[0] < right and has_digit(w.text)]
     return cells[0] if cells else None
+
+
+CELL_THRESHOLD = 190
+CELL_MARGIN = 20
+CELL_SCALE = 3.0
+
+
+def read_cell_image(cell: Any, *, lang: str = "en", scale: float = CELL_SCALE) -> str:
+    from PIL import Image
+
+    from image_to_cash.ocr import run_ocr
+
+    black_white = cell.convert("L").point(lambda v: 255 if v > CELL_THRESHOLD else 0).convert("RGB")
+    padded = Image.new("RGB", (black_white.width + 2 * CELL_MARGIN, black_white.height + 2 * CELL_MARGIN), "white")
+    padded.paste(black_white, (CELL_MARGIN, CELL_MARGIN))
+    return " ".join(w.text for line in run_ocr(padded, lang=lang, scale=scale).lines for w in line.words)
+
+
+def cell_span(image: Any, header: Box) -> tuple[float, float]:
+    lines = column_lines(image, header)
+    left = max((x for x in lines if x < header.center[0]), default=header.left - HEADER_PAD)
+    right = min((x for x in lines if x > header.center[0]), default=float(image.width))
+    return left, right

@@ -51,7 +51,7 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   │   └── discover.py           records the UIA tree of each screen
 │   ├── flow/                     the task's Order-first flow
 │   │   ├── runner.py             checks, stage gates, run in order, stop at the first failure
-│   │   ├── stages.py             the five stages of the task (built ones and pending ones)
+│   │   ├── stages.py             the five stages of the task, in order
 │   │   ├── order.py              stage 1: open the New Order (task 1.3–1.8)
 │   │   ├── debtor.py             stage 2: find the Debtor in Select the address (2.1–2.4)
 │   │   ├── create_debtor.py      stage 2 creation branch: fill in a New Debtor (2.5–2.9)
@@ -60,7 +60,10 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   │   ├── vat.py                find or create the VAT rate (3.4–3.6)
 │   │   ├── create_product.py     create a missing Product (3.7–3.11)
 │   │   ├── lines.py              Qty., U.Price, Discount per line; totals checked after each (3.13–3.16)
-│   │   └── matching.py           exact-match rules for contacts, products, payment methods, VATs
+│   │   ├── matching.py           exact-match rules for contacts, products, payment methods, VATs
+│   │   ├── save_order.py         stage 4: check and save the Order, open the linked Invoice (4.1–4.7)
+│   │   ├── documents.py          find and check a row in Data > Documents (4.5, 5.5)
+│   │   └── invoice.py            stage 5: check the copied Invoice, payment and paid state, save (5.1–5.7)
 │   └── report/
 │       └── run_report.py         runs/<time>-<reference>/: report, screenshots, manual review
 ├── scripts/
@@ -73,9 +76,6 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   └── live/                     live UI tests against a running Fakturama (opt-in)
 └── docs/screenshots/             annotated screenshots of a run
 ```
-
-Modules for saving the Order and the Invoice (task sections 4–5) are added as they are
-built (see [Progress](#progress)).
 
 ## Development setup
 
@@ -170,7 +170,7 @@ With Fakturama running and no New Order editor open:
 
 Each stage ends with a check that reads every value back from Fakturama; the run stops at
 the first check that fails or the first case that needs a person, and leaves Fakturama as
-it is. Built so far, all live-tested:
+it is. All five stages are built and live-tested:
 
 - stage 1: open the New Order and set Date, Cust.Ref., Net and With VAT (task 1.3–1.8);
 - stage 2: search Select the address and select the one exact contact (Company, First Name,
@@ -182,11 +182,20 @@ it is. Built so far, all live-tested:
   it (3.1–3.3). When missing: find or create the VAT rate, checking Name, Value and VAT code
   S (Standard rate) (3.4–3.6), create the Product with the gross price, save it once and
   select it in the order (3.7–3.12). Then set Qty., U.Price and Discount on its line and
-  check that Total Net and VAT equal the completed lines so far (3.13–3.17).
+  check that Total Net and VAT equal the completed lines so far (3.13–3.17);
+- stage 4: check both addresses, every line (Item No., Name, Qty., U.Price), Discount 0%,
+  Free of shipping costs / 0.00 and Total Net, VAT and Total; save once; find the Order in
+  Data > Documents (number, Date, Cust.Ref., open, Total); open the linked Invoice from the
+  Order's "Create a follow-up document" area, not the toolbar (4.1–4.7);
+- stage 5: leave the proposed No., Date and Service date unchanged; check that Cust.Ref.,
+  both addresses, Order Date, VAT mode, lines and totals were copied; set or confirm the
+  payment method; if PAID tick paid, set the payment date and Value = Total (if not PAID,
+  leave paid clear); save once; check the saved payment fields, then the Invoice row (state,
+  Total) and the still open Order in Data > Documents. No Delivery, Correction or Dunning
+  document is created (5.1–5.7).
 
-Conflicting or ambiguous matches stop for manual review. Stages 4–5 (save the Order, the
-linked Invoice and its payment) are next; until then the New Order is left open and
-unsaved.
+Conflicting or ambiguous matches stop for manual review. A completed run leaves the saved
+Order and Invoice open in Fakturama.
 
 ### Run report and manual review
 
@@ -325,6 +334,21 @@ Tesseract if installed.
   company. Street, ZIP and City must match exactly.
 - If Fakturama warns about a duplicate contact while one is being created, the run stops
   for manual review (nothing is saved).
+- Data > Documents is a list panel: setting its search text through UIA does not filter, so
+  the tool types it (and reads it back). Its Total column renders `$678.30` so that OCR
+  reads `"78.30`; a cell that does not read as the expected value is cropped from the table
+  (using the column lines), turned black and white and read again at 3x before it counts
+  as a mismatch. Inside a money column OCR's `S` for `$` and `o` for `0` are accepted; any
+  other misreading fails.
+- The Order and Invoice editors are split: header and items in an upper part with its own
+  scrollbar, Remarks and totals below. In the Invoice the items table does not fit, so the
+  tool scrolls that part until the whole table is visible, reads the lines and scrolls back.
+  The low-contrast "Qty." header is sometimes missed; the quantity is then read as the
+  number left of the line's Item No. (as when the line is filled in).
+- Ticking the Invoice's **paid** box adds an "at" date and a Value field; the tool waits for
+  them before setting the payment date and the full Total.
+- After saving, an editor tab is named after its document (`PO000002`, `INV000002`); the
+  tool checks the saved values in that tab.
 - Editors are closed with File > Close after clicking their tab (Ctrl+W is swallowed when a
   dropdown has the focus). Menu entries carry their shortcut when an editor is active
   (`Close\tCtrl+W`), so menu locators accept that suffix.
@@ -339,7 +363,7 @@ Tesseract if installed.
 | 4 | UI helpers and `locators.yaml` | done: locators and finder, connect and waits, actions with read-back, table OCR; 5 live tests pass. Editing item-line cells moves to step 6 (needs a product line) |
 | 5 | Stage 1: open New Order | done: `main.py run` runs it from the image or JSON; live-tested |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | done: existing contact and products selected live; item lines completed with totals checked |
-| 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |
+| 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | done and live-tested: a full `main.py run` from the image completed all five stages (PO000002 saved and open, INV000002 saved as paid on Jul 18, 2026 for $678.30) |
 | 8 | Create missing Debtor, Payment Method, VAT, Product | done and live-tested: contact (with delivery address), Bank Transfer, VAT 19% and both products created, saved once and reselected |
 | 9 | Run report and manual-review stops | done: report folder with checks and screenshots per stage, `manual_review.json` on every stop; live-tested |
 | 10 | README, screenshots / recording, written answers | — |

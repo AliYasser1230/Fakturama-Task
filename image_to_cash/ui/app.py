@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,8 +14,9 @@ from image_to_cash.settings import Settings
 from image_to_cash.ui import actions
 from image_to_cash.ui.finder import Node, UiaNode, locate, preorder, resolve, scope_root
 from image_to_cash.ui.locators import Locators, Scope, load_locators
-from image_to_cash.ui.grid_ocr import (Grid, GridRow, capture_words, cell_word, click_row, line_row,
-                                       read_grid, row_at, visual_rows)
+from image_to_cash.ui.grid_ocr import (Grid, GridRow, capture_words, cell_span, cell_word, click_row, line_row,
+                                       match_headers, ocr_words, read_cell_image, read_grid, row_at,
+                                       visual_rows)
 from image_to_cash.ui.waits import wait_stable, wait_until
 
 
@@ -271,6 +273,9 @@ class Fakturama:
 
     def search_table(self, screen: str, text: str, timeout: float | None = None) -> Grid | None:
         actions.put_value(self.find(screen, "search"), text)
+        is_panel = self.locators.screen(screen).scope.dialog is None
+        if is_panel and not actions.same_text(actions.read_value(self.find(screen, "search")), text):
+            actions.set_text(self.find(screen, "search"), text, commit="")
 
         def state():
             if not self.is_open(screen):
@@ -381,10 +386,10 @@ class Fakturama:
         mouse.move(coords=(r.left + (r.right - r.left) // 2, r.top + 8))
         time.sleep(0.2)
 
-    def table_rows(self, screen: str, control: str) -> list:
+    def table_rows(self, screen: str, control: str, title: str | None = None) -> list:
         self.bring_to_front()
         self.park_mouse()
-        words, _ = capture_words(self.find(screen, control), lang=self.settings.ocr_language)
+        words, _ = capture_words(self.find(screen, control, title), lang=self.settings.ocr_language)
         return visual_rows(words)
 
     def _hscroll(self, screen: str, control: str) -> UiaNode | None:
@@ -400,8 +405,7 @@ class Fakturama:
         pattern = get_elem_interface(bar.info.element, "RangeValue")
         return float(pattern.CurrentValue), float(pattern.CurrentMinimum)
 
-    def _press_scroll(self, screen: str, control: str, button: str) -> bool:
-        bar = self._hscroll(screen, control)
+    def _press(self, bar: UiaNode | None, button: str) -> bool:
         target = next((c for c in bar.children() if c.control_type == "Button" and c.name == button), None) if bar else None
         if target is None or not target.enabled:
             return False
@@ -409,6 +413,35 @@ class Fakturama:
         target.wrapper().click_input()
         time.sleep(0.4)
         return True
+
+    def _press_scroll(self, screen: str, control: str, button: str) -> bool:
+        return self._press(self._hscroll(screen, control), button)
+
+    def _vscroll(self, screen: str, control: str, title: str | None) -> tuple[UiaNode | None, tuple]:
+        tab = self.activate(screen, title)
+        grid = self.find(screen, control, title).rect
+        bars = [n for n in preorder(tab) if n.control_type == "ScrollBar" and n.name == "Vertical" and n.visible
+                and n.rect[1] <= grid[1] < n.rect[3]
+                and not (grid[0] <= n.rect[0] and n.rect[2] <= grid[2] and grid[1] <= n.rect[1] and n.rect[3] <= grid[3])]
+        return (max(bars, key=lambda b: b.rect[1]) if bars else None), grid
+
+    @contextmanager
+    def revealed(self, screen: str, control: str, title: str | None = None):
+        try:
+            for _ in range(8):
+                bar, grid = self._vscroll(screen, control, title)
+                if bar is None or grid[3] <= bar.rect[3] + 1:
+                    break
+                if not (self._press(bar, "Page down") or self._press(bar, "Line down")):
+                    break
+            yield
+        finally:
+            for _ in range(12):
+                bar, _ = self._vscroll(screen, control, title)
+                if bar is None or self._scroll_position(bar)[0] <= self._scroll_position(bar)[1]:
+                    break
+                if not (self._press(bar, "Page up") or self._press(bar, "Line up")):
+                    break
 
     def scroll_home(self, screen: str, control: str) -> None:
         for _ in range(12):
@@ -461,3 +494,18 @@ class Fakturama:
             return shown
         finally:
             self.scroll_home(screen, control)
+
+    def read_cell(self, screen: str, control: str, row: GridRow, column: str, title: str | None = None) -> str:
+        self.bring_to_front()
+        self.park_mouse()
+        node = self.find(screen, control, title)
+        image = node.wrapper().capture_as_image()
+        rows = visual_rows(ocr_words(image, lang=self.settings.ocr_language))
+        header = match_headers(rows[0], (column,)).get(column) if rows else None
+        if header is None:
+            raise ControlNotFound(f"column {column!r} not found in {screen}.{control}")
+        left, right = cell_span(image, header)
+        top = row.box.top - node.rect[1] - 4
+        bottom = row.box.bottom - node.rect[1] + 4
+        cell = image.crop((int(left) + 1, max(0, int(top)), int(right) - 1, min(image.height, int(bottom))))
+        return read_cell_image(cell, lang=self.settings.ocr_language)

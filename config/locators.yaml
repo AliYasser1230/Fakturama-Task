@@ -190,11 +190,18 @@ invoice_editor:
     service_date: {type: Edit, after: {name: Service date}}
     order_date: {type: Edit, after: {name: Order Date}}
     address: {type: Edit, within: {type: Tab, name: Invoice address}}
+    tab_invoice_address: {type: TabItem, name: Invoice address}
+    tab_delivery_address: {type: TabItem, name: Delivery address}
+    delivery_address: {type: Edit, within: {type: Tab, name: Delivery address}}
+    price_mode: {type: ComboBox, after: {name: Date}}
+    vat_mode: {type: ComboBox, name: VAT}
     items: {type: Grid, after: {name: Items}, columns: [Pos., Qty., Item No., Picture, Name, Description, VAT, U.Price]}
     subtotal: {type: Edit, name_re: 'Total (Gross|Net)'}
     vat_total: {type: Edit, name: VAT}
     total: {type: Edit, name: Total}
     paid: {type: CheckBox, name: paid}
     payment: {type: ComboBox, after: {type: CheckBox, name: paid}}
+    paid_date: {type: Edit, after: {name: at}}
+    paid_value: {type: Edit, name: Value}
     due_days: {type: Edit, after: {name: Due Days}}
     pay_until: {type: Edit, after: {name: Pay Until}}

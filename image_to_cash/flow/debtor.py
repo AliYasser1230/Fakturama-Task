@@ -39,18 +39,18 @@ def cancel(app) -> None:
     app.wait_closed(DIALOG)
 
 
-def address_checks(app, order: OrderData) -> list[Check]:
+def address_checks(app, order: OrderData, screen: str = EDITOR, title: str | None = None) -> list[Check]:
     checks = []
-    if app.exists(EDITOR, "tab_invoice_address"):
-        app.click(EDITOR, "tab_invoice_address")
-    invoice = app.read(EDITOR, "address")
+    if app.exists(screen, "tab_invoice_address", title):
+        app.click(screen, "tab_invoice_address", title)
+    invoice = app.read(screen, "address", title)
     for label, value in address_parts(order.billing_address, order.debtor):
         checks.append(Check(f"Invoice address {label}", value, " / ".join(invoice.splitlines()),
                             text_contains(invoice, value)))
 
-    if app.exists(EDITOR, "tab_delivery_address"):
-        app.click(EDITOR, "tab_delivery_address")
-        delivery = app.read(EDITOR, "delivery_address")
+    if app.exists(screen, "tab_delivery_address", title):
+        app.click(screen, "tab_delivery_address", title)
+        delivery = app.read(screen, "delivery_address", title)
         shown = " / ".join(delivery.splitlines())
         company = order.debtor.company or ""
         for label, value in address_parts(order.delivery_address):
@@ -59,7 +59,7 @@ def address_checks(app, order: OrderData) -> list[Check]:
                                     shown, text_contains(delivery, company)))
                 continue
             checks.append(Check(f"Delivery address {label}", value, shown, text_contains(delivery, value)))
-        app.click(EDITOR, "tab_invoice_address")
+        app.click(screen, "tab_invoice_address", title)
     else:
         same = order.delivery_same_as_billing
         checks.append(Check("Delivery address", "same as the invoice address" if same else order.delivery_address.street,

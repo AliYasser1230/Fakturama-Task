@@ -53,6 +53,8 @@ class RunContext:
     app: Any
     settings: Settings
     order_number: str | None = None
+    order_title: str | None = None
+    invoice_number: str | None = None
     results: list[StageResult] = field(default_factory=list)
 
 
