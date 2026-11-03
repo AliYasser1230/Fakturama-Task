@@ -39,7 +39,7 @@ order_editor:
     delete_item: {type: Image, after: {name: Items}, index: 3}
     items: {type: Grid, after: {name: Items}, columns: [Pos., Qty., Item No., Picture, Name, Description, VAT, U.Price]}
     remarks: {type: Edit, after: {name: Remarks}}
-    total_gross: {type: Edit, name: Total Gross}
+    subtotal: {type: Edit, name_re: 'Total (Gross|Net)'}
     discount: {type: Edit, name: Discount}
     shipping: {type: ComboBox, name: Shipping}
     shipping_amount: {type: Edit, name: "", after: {name: Shipping}}
@@ -159,7 +159,7 @@ invoice_editor:
     order_date: {type: Edit, after: {name: Order Date}}
     address: {type: Edit, within: {type: Tab, name: Invoice address}}
     items: {type: Grid, after: {name: Items}, columns: [Pos., Qty., Item No., Picture, Name, Description, VAT, U.Price]}
-    total_gross: {type: Edit, name: Total Gross}
+    subtotal: {type: Edit, name_re: 'Total (Gross|Net)'}
     vat_total: {type: Edit, name: VAT}
     total: {type: Edit, name: Total}
     paid: {type: CheckBox, name: paid}

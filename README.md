@@ -68,6 +68,8 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 ├── samples/                      the supplied order image, its hand-checked transcription
 │                                 (*.raw.json) and the expected validated order (*.expected.json)
 ├── tests/                        unit tests (run on any OS)
+│   ├── fixtures/uia/             slim copies of the recorded Fakturama control trees
+│   └── live/                     live UI tests against a running Fakturama (opt-in)
 └── docs/screenshots/             annotated screenshots of a run
 ```
 
@@ -147,6 +149,19 @@ lists every control it finds on the screens that are open):
 .venv\Scripts\python main.py probe --screen order_editor
 ```
 
+## Live UI tests (Windows)
+
+`tests/live/` drives the real Fakturama and is skipped unless `FAKTURAMA_LIVE=1` is set.
+Start Fakturama with no editor open, then:
+
+```powershell
+$env:FAKTURAMA_LIVE = "1"; .venv\Scripts\python -m pytest tests/live -v
+```
+
+It opens a New Order, sets Cust.Ref., Date and the Net price mode (each read back), opens
+and cancels Select the address, then closes the order **without saving** and checks that
+the next New Order still gets the same number. Nothing is saved.
+
 ## Extracting the order data
 
 ```bash
@@ -180,6 +195,23 @@ Tesseract if installed.
 - **Two schema layers**: a verbatim `Raw*` layer (what Claude returns and OCR is compared
   against) and a typed `OrderData` layer (what the Fakturama flow uses).
 
+## Fakturama 2.2.0 notes (found while building the UI driver)
+
+- The contact's payment method is on the **Miscellaneous** tab; 2.2.0 has no separate
+  Payment tab (task step 2.10).
+- In **Net** price mode the order's "Total Gross" field becomes "Total Net".
+- Fakturama shows amounts with `$` and dates as `Jul 14, 2026` (as in the task's own
+  screenshots). Amounts are compared as numbers; the order currency (EUR) is checked against
+  `EXPECTED_CURRENCY`, not against Fakturama's display.
+- The Date field is a segmented date editor: typing `Jul 14, 2026` only changes the day.
+  It is set by typing month, day and year as digits, then read back.
+- Closing a changed editor opens a **Save Parts** list with a tick box, not a Yes/No
+  question. To discard, the tool unticks the row with Space, confirms through the list
+  control that nothing is ticked, then presses OK. Any other dialog is cancelled and the
+  run stops for manual review.
+- Payment-code names end with a space (`'Credit transfer '`); names are compared with
+  surrounding spaces ignored.
+
 ## Progress
 
 | # | Step | Status |
@@ -187,7 +219,7 @@ Tesseract if installed.
 | 1 | Repo structure, dependencies, sample image | done |
 | 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done (Claude call tested with a fake client; first live call needs an API key) |
 | 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
-| 4 | UI helpers and `locators.yaml` | in progress: 4a locators and finder; 4b connect, waits and `probe` (tested live) |
+| 4 | UI helpers and `locators.yaml` | in progress: 4a locators and finder; 4b connect, waits, `probe`; 4c actions (live-tested). 4d table OCR next |
 | 5 | Stage 1: open New Order | — |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | — |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |

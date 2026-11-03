@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from image_to_cash.errors import ControlNotFound, FlowStopped
+from image_to_cash.errors import ControlNotFound, FlowStopped, ManualReviewRequired
 from image_to_cash.settings import Settings
 from image_to_cash.ui.finder import Node, UiaNode, locate, resolve, scope_root
 from image_to_cash.ui.locators import Locators, load_locators
@@ -149,3 +149,43 @@ class Fakturama:
 
     def probe(self, screens: list[str] | None = None) -> list[ProbeResult]:
         return probe_tree(self.root(), self.locators, screens)
+
+    def close_editor(self, screen: str, timeout: float | None = None) -> None:
+        from image_to_cash.ui import actions
+
+        timeout = timeout or self.settings.ui_timeout
+        tab = self.wait_open(screen)
+        title = tab.name
+        item = next((c for c in tab.children() if c.control_type == "TabItem" and c.name == title), None)
+        if item is None:
+            raise ControlNotFound(f"no tab named {title!r} to close")
+        actions.select_tab(item)
+        self.bring_to_front()
+        actions.ensure_foreground(self.root())
+        actions.send_keys("^w")
+
+        def closed_or_asked():
+            if not self.is_open(screen):
+                return "closed"
+            dialogs = actions.open_dialogs(self.root())
+            return dialogs[0] if dialogs else None
+
+        outcome = wait_until(closed_or_asked, timeout=timeout, what=f"{title!r} to close")
+        if outcome == "closed":
+            return
+        info = actions.dialog_info(outcome)
+        plan = actions.discard_plan(info, actions.editor_title(title))
+        if plan is None:
+            if "Cancel" in info.buttons:
+                actions.press_dialog_button(outcome, "Cancel")
+            raise ManualReviewRequired(f"unexpected dialog while closing {title!r}: {info}")
+        if plan == "untick":
+            try:
+                actions.untick_all(outcome)
+            except Exception as exc:
+                actions.press_dialog_button(outcome, "Cancel")
+                raise ManualReviewRequired(f"could not discard {title!r}: {exc}") from None
+            actions.press_dialog_button(outcome, "OK")
+        else:
+            actions.press_dialog_button(outcome, actions.DISCARD_BUTTON)
+        self.wait_closed(screen, timeout)
