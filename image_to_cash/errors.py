@@ -46,4 +46,6 @@ class WaitTimeout(FlowStopped):
 
 
 class NotBuiltYet(FlowStopped):
-    pass
+    def __init__(self, message: str, result=None):
+        super().__init__(message)
+        self.result = result

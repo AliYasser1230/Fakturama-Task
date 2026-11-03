@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from image_to_cash.errors import ManualReviewRequired, NotBuiltYet
 from image_to_cash.extract.schema import OrderData
+from image_to_cash.flow.create_debtor import debtor_checks, fill_new_debtor
 from image_to_cash.flow.matching import CREATE, REVIEW, SELECT, Decision, address_parts, decide_debtor, text_contains
 from image_to_cash.flow.runner import Check, RunContext, StageResult, gate
 
@@ -65,4 +66,8 @@ def select_debtor(ctx: RunContext) -> StageResult:
     if decision.action == REVIEW:
         raise ManualReviewRequired(decision.reason)
     assert decision.action == CREATE
-    raise NotBuiltYet(f"{decision.reason}; creating the Debtor (task 2.5-2.13) is built in step 8")
+    customer_id = fill_new_debtor(app, order)
+    filled = gate(*STAGE, debtor_checks(app, order, customer_id), notes=[decision.reason])
+    raise NotBuiltYet(f"{decision.reason}; new contact {customer_id} is filled in (task 2.5-2.9) but not saved: "
+                      f"the payment method (2.10) and saving and reselecting it (2.11-2.13) come next in step 8",
+                      filled)

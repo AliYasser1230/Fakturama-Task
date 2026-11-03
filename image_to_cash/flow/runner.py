@@ -68,7 +68,7 @@ class RunResult:
     stopped_at: Stage | None = None
     kind: str | None = None
     reason: str | None = None
-    failed: StageResult | None = None
+    stage_result: StageResult | None = None
     not_built: list[Stage] = field(default_factory=list)
 
     @property
@@ -87,7 +87,7 @@ def run_flow(ctx: RunContext, stages: list[Stage]) -> RunResult:
         except ManualReviewRequired as exc:
             return RunResult(ctx.results, stage, "manual review", str(exc))
         except NotBuiltYet as exc:
-            return RunResult(ctx.results, stage, "not built yet", str(exc))
+            return RunResult(ctx.results, stage, "not built yet", str(exc), exc.result)
         except FlowStopped as exc:
             return RunResult(ctx.results, stage, "stopped", str(exc))
         ctx.results.append(result)
@@ -102,8 +102,8 @@ def format_run(result: RunResult) -> list[str]:
         lines += [f"    note: {n}" for n in stage.notes]
     if result.stopped_at is not None:
         lines.append(f"Stage {result.stopped_at.number} - {result.stopped_at.title}: STOPPED ({result.kind})")
-        if result.failed is not None:
-            lines += [f"    {c}" for c in result.failed.checks]
+        if result.stage_result is not None:
+            lines += [f"    {c}" for c in result.stage_result.checks]
         lines.append(f"    {result.reason}")
     for stage in result.not_built:
         lines.append(f"Stage {stage.number} - {stage.title}: not built yet")

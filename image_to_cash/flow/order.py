@@ -11,7 +11,7 @@ WITH_VAT = "With VAT"
 
 def open_order(ctx: RunContext) -> StageResult:
     app, order = ctx.app, ctx.order
-    if app.is_open(EDITOR):
+    if app.editor_open(EDITOR):
         raise ManualReviewRequired("a New Order editor is already open in Fakturama; save or close it, then run again")
 
     app.click("main", "new_order")

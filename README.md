@@ -54,6 +54,7 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │       ├── stages.py             the five stages of the task (built ones and pending ones)
 │       ├── order.py              stage 1: open the New Order (task 1.3–1.8)
 │       ├── debtor.py             stage 2: find the Debtor in Select the address (2.1–2.4)
+│       ├── create_debtor.py      stage 2 creation branch: fill in a New Debtor (2.5–2.9)
 │       ├── products.py           stage 3: find each Product in Select a product (3.1–3.3)
 │       └── matching.py           the exact-match rules for contacts and products
 ├── scripts/
@@ -172,8 +173,13 @@ it is. Built so far:
 - stage 3: search Select a product by SKU and select the one exact product (same Name),
   then check that its line appeared.
 
-When a contact or product does not exist, the run cancels the selector and stops: the
-creation branches are step 8. The New Order is left open and unsaved.
+When no contact matches, the run cancels the selector and fills in a New Debtor (task
+2.5–2.9): company, names, the billing address as Main address with the Invoice address
+role, a second address with the Delivery address role when billing and delivery differ,
+then alias, 0% discount and Net on Miscellaneous; every field is read back. It stops
+there (nothing saved yet): the payment method (2.10) and saving and reselecting the
+contact (2.11–2.13) are next. A missing product cancels Select a product and stops. The
+New Order is left open and unsaved.
 
 ## Live UI tests (Windows)
 
@@ -194,6 +200,7 @@ The tests:
 - read the column headers of Data > Documents and of the Select the address table.
 - run stage 1 for the sample order (from its validated JSON) and close the order unsaved.
 - search a contact and a product that do not exist; both selectors must be cancelled.
+- fill in a New Debtor for the sample order, check every field, and close it unsaved.
 
 Nothing is saved.
 
@@ -256,6 +263,17 @@ Tesseract if installed.
   clicks them instead and checks that they became selected.
 - An existing record opens in an editor tab named after it (e.g. `Tax-free`). The
   standard VAT cannot be deleted (its delete button stays disabled).
+- An address gets its role (Invoice address / Delivery address) from tick boxes in a popup
+  behind the small arrow next to "address type". `+` adds an "additional address #1"
+  tab; only the open address tab's fields are visible to UI Automation.
+- A delivery address whose name differs from the company (the sample's "Northstar Office
+  Warehouse") goes into that address's "additional name"; the billing address name equals
+  the company, so its additional name stays empty (task 2.7: only when supplied).
+- Only the active editor's content is in the UIA tree; a background editor is just a tab.
+  The tool tells "open" (a tab exists) from "active" and brings the right tab to the front.
+- Editors are closed with File > Close after clicking their tab (Ctrl+W is swallowed when a
+  dropdown has the focus). Menu entries carry their shortcut when an editor is active
+  (`Close\tCtrl+W`), so menu locators accept that suffix.
 
 ## Progress
 
@@ -268,6 +286,6 @@ Tesseract if installed.
 | 5 | Stage 1: open New Order | done: `main.py run` runs it from the image or JSON; live-tested |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | selection and exact-match rules done (live: not-found path); selecting real records and editing item lines are tested in step 8 |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |
-| 8 | Create missing Debtor, Payment Method, VAT, Product | — |
+| 8 | Create missing Debtor, Payment Method, VAT, Product | in progress: part 1 (fill in the New Debtor, 2.5–2.9) done and live-tested |
 | 9 | Run report and manual-review stops | — |
 | 10 | README, screenshots / recording, written answers | — |

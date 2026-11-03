@@ -176,3 +176,15 @@ def test_bad_yaml_names_the_screen(tmp_path):
     bad.write_text("order_editor:\n  scope: {tab: X}\n  controls:\n    a: {type: Edit, typo: 1}\n", encoding="utf-8")
     with pytest.raises(ValueError, match="screen 'order_editor' is invalid"):
         load_locators(bad)
+
+
+def test_menu_entries_match_with_or_without_their_shortcut(locators):
+    from image_to_cash.ui.finder import resolve
+
+    loc = locators.control("file_menu", "close")
+    for name in ("Close", "Close\tCtrl+W"):
+        root = DictNode(_tree({"control_type": "Menu", "name": "File", "children": [_n("MenuItem", name)]}))
+        assert resolve(root, loc).name == name
+    other = DictNode(_tree({"control_type": "Menu", "name": "File", "children": [_n("MenuItem", "Close All\tCtrl+Shift+W")]}))
+    with pytest.raises(ControlNotFound):
+        resolve(other, loc)

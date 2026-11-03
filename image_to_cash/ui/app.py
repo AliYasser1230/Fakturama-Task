@@ -11,7 +11,7 @@ from typing import Any
 from image_to_cash.errors import ControlNotFound, FlowStopped, ManualReviewRequired
 from image_to_cash.settings import Settings
 from image_to_cash.ui import actions
-from image_to_cash.ui.finder import Node, UiaNode, locate, resolve, scope_root
+from image_to_cash.ui.finder import Node, UiaNode, locate, preorder, resolve, scope_root
 from image_to_cash.ui.locators import Locators, Scope, load_locators
 from image_to_cash.ui.grid_ocr import Grid, GridRow, click_row, read_grid
 from image_to_cash.ui.waits import wait_stable, wait_until
@@ -132,6 +132,27 @@ class Fakturama:
         except ControlNotFound:
             return False
 
+    def editor_tabs(self, screen: str, title: str | None = None) -> list[UiaNode]:
+        scope = self.scope(screen, title)
+        if scope.tab is None:
+            return []
+        return [n for n in preorder(self.root())
+                if n.control_type == "TabItem" and n.visible and re.fullmatch(scope.tab, n.name)]
+
+    def editor_open(self, screen: str, title: str | None = None) -> bool:
+        return self.is_open(screen, title) or bool(self.editor_tabs(screen, title))
+
+    def activate(self, screen: str, title: str | None = None, timeout: float | None = None) -> UiaNode:
+        if self.is_open(screen, title):
+            return self.wait_open(screen, timeout, title)
+        tabs = self.editor_tabs(screen, title)
+        if not tabs:
+            raise ControlNotFound(f"no open {screen} ({self.scope(screen, title).describe()})")
+        if len(tabs) > 1:
+            raise ManualReviewRequired(f"{len(tabs)} tabs named {tabs[0].name!r} are open; close the extra ones")
+        actions.select_tab(tabs[0])
+        return self.wait_open(screen, timeout, title)
+
     def wait_open(self, screen: str, timeout: float | None = None, title: str | None = None) -> UiaNode:
         scope = self.scope(screen, title)
         return wait_until(lambda: scope_root(self.root(), scope),
@@ -203,20 +224,48 @@ class Fakturama:
     def tick(self, screen: str, control: str, checked: bool, title: str | None = None) -> None:
         actions.set_checkbox(self.find(screen, control, title), checked)
 
-    def close_editor(self, screen: str, timeout: float | None = None, title: str | None = None) -> None:
-        timeout = timeout or self.settings.ui_timeout
-        tab = self.wait_open(screen, title=title)
-        tab_title = tab.name
-        item = next((c for c in tab.children() if c.control_type == "TabItem" and c.name == tab_title), None)
-        if item is None:
-            raise ControlNotFound(f"no tab named {tab_title!r} to close")
-        actions.select_tab(item)
-        self.bring_to_front()
+    def is_ticked(self, screen: str, control: str, title: str | None = None) -> bool:
+        return actions.toggle_state(self.find(screen, control, title))
+
+    def select_tab(self, screen: str, control: str, title: str | None = None) -> None:
+        actions.select_tab(self.find(screen, control, title))
+
+    def wait_gone(self, screen: str, control: str, timeout: float | None = None, title: str | None = None) -> None:
+        wait_until(lambda: not self.exists(screen, control, title),
+                   timeout=timeout or self.settings.ui_timeout, what=f"{screen}.{control} to disappear")
+
+    def press(self, keys: str) -> None:
         actions.ensure_foreground(self.root())
-        actions.send_keys("^w")
+        actions.send_keys(keys)
+
+    def close_editor(self, screen: str, timeout: float | None = None, title: str | None = None) -> None:
+        tab = self.activate(screen, title=title)
+        item = next((c for c in tab.children() if c.control_type == "TabItem" and c.name == tab.name), None)
+        if item is None:
+            raise ControlNotFound(f"no tab named {tab.name!r} to close")
+        self._close_tab(item, screen, title, timeout or self.settings.ui_timeout)
+
+    def close_all(self, screen: str, timeout: float | None = None, title: str | None = None) -> int:
+        closed = 0
+        while self.editor_tabs(screen, title):
+            self._close_tab(self.editor_tabs(screen, title)[0], screen, title, timeout or self.settings.ui_timeout)
+            closed += 1
+        return closed
+
+    def _close_tab(self, item: UiaNode, screen: str, title: str | None, timeout: float) -> None:
+        tab_title = item.name
+        before = len(self.editor_tabs(screen, title))
+        self.bring_to_front()
+        actions.ensure_foreground(item)
+        item.wrapper().click_input()
+        self.click("main", "menu_file")
+        actions.click(self.wait_for("file_menu", "close"))
+
+        def closed() -> bool:
+            return len(self.editor_tabs(screen, title)) < before
 
         def closed_or_asked():
-            if not self.is_open(screen, title):
+            if closed():
                 return "closed"
             dialogs = actions.open_dialogs(self.root())
             return dialogs[0] if dialogs else None
@@ -239,4 +288,4 @@ class Fakturama:
             actions.press_dialog_button(outcome, "OK")
         else:
             actions.press_dialog_button(outcome, actions.DISCARD_BUTTON)
-        self.wait_closed(screen, timeout, title)
+        wait_until(closed, timeout=timeout, what=f"{tab_title!r} to close")

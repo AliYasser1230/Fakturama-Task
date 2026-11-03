@@ -12,6 +12,13 @@ main:
     nav_new_product: {type: Text, name: New product, within: {type: Pane, name: Navigation View}}
     nav_new_contact: {type: Text, name: New Contact, within: {type: Pane, name: Navigation View}}
     menu_data: {type: MenuItem, name: Data, within: {type: MenuBar, name: Application}}
+    menu_file: {type: MenuItem, name: File, within: {type: MenuBar, name: Application}}
+
+file_menu:
+  scope: {menu: File}
+  controls:
+    close: {type: MenuItem, name_re: 'Close(\t.*)?'}
+    save: {type: MenuItem, name_re: 'Save(\t.*)?'}
 
 data_menu:
   scope: {menu: Data}
@@ -87,11 +94,21 @@ debtor_editor:
     email: {type: Edit, name: E-Mail}
     phone: {type: Edit, name: Telephone}
     mobile: {type: Edit, name: Mobile}
+    address_type: {type: Edit, after: {name: address type}}
+    address_type_menu: {type: Button, name: "", after: {name: address type}}
+    add_address: {type: Button, name: "+"}
+    tab_additional_address: {type: TabItem, name: "additional address #1"}
     alias: {type: Edit, name: Alias name}
     vat_number: {type: Edit, name: VAT Number}
     payment: {type: ComboBox, name: Payment}
     discount: {type: Edit, name: Discount}
     net_or_gross: {type: ComboBox, name: Net or Gross}
+
+address_roles:
+  scope: {window: main}
+  controls:
+    invoice: {type: CheckBox, name: Invoice address}
+    delivery: {type: CheckBox, name: Delivery address}
 
 payment_editor:
   scope: {tab: '\*?New Term of Payment'}

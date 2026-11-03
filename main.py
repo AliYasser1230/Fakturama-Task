@@ -167,7 +167,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     for issue in issues:
         print(f"  {issue}", file=sys.stderr)
     print(f"Order {order.external_reference}: {len(order.items)} item(s), "
-          f"gross {order.totals.gross} {order.currency}, {order.payment.method.value} {order.payment.paid_status}")
+          f"gross {order.totals.gross} {order.currency}, {order.payment.method.value} {order.payment.paid_status}",
+          flush=True)
 
     try:
         app = Fakturama.connect(settings)
@@ -177,7 +178,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     app.bring_to_front()
     app.maximize()
     result = run_flow(RunContext(order=order, app=app, settings=settings), STAGES)
-    print("\n".join(format_run(result)))
+    print("\n".join(format_run(result)), flush=True)
     if not result.ok:
         print("\nSTOPPED. Fakturama was left as it is, so you can look at it.", file=sys.stderr)
         return 1

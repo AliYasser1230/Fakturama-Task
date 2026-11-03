@@ -97,7 +97,7 @@ def test_run_flow_reports_a_failed_check_with_its_details(order):
 
     app = FakeApp(after={("choose", "order_editor", "price_mode"): clear_reference})
     result = run_flow(_ctx(order, app), STAGES)
-    assert result.kind == "check failed" and result.failed is not None
+    assert result.kind == "check failed" and result.stage_result is not None
     assert any(line.strip().startswith("MISMATCH Cust.Ref.") for line in format_run(result))
 
 

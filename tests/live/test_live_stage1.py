@@ -15,13 +15,12 @@ def app():
     from image_to_cash.ui.app import Fakturama
 
     fakturama = Fakturama.connect(Settings.from_env())
-    if fakturama.is_open("order_editor"):
+    if fakturama.editor_open("order_editor"):
         pytest.skip("a New Order editor is already open in Fakturama; close it first")
     fakturama.bring_to_front()
     fakturama.maximize()
     yield fakturama
-    if fakturama.is_open("order_editor"):
-        fakturama.close_editor("order_editor")
+    fakturama.close_all("order_editor")
 
 
 def test_stage1_opens_the_order_for_the_sample(app, sample_expected_path):
@@ -36,4 +35,4 @@ def test_stage1_opens_the_order_for_the_sample(app, sample_expected_path):
     assert ctx.order_number
     assert app.read("order_editor", "cust_ref") == order.external_reference
     app.close_editor("order_editor")
-    assert not app.is_open("order_editor")
+    assert not app.editor_open("order_editor")

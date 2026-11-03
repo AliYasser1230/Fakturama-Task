@@ -20,7 +20,7 @@ def app():
 
     fakturama = Fakturama.connect(Settings.from_env())
     for screen in ("order_editor", "vat_editor"):
-        if fakturama.is_open(screen):
+        if fakturama.editor_open(screen):
             pytest.skip(f"{screen} is already open in Fakturama; close it first")
     fakturama.bring_to_front()
     fakturama.maximize()
@@ -28,8 +28,7 @@ def app():
     if fakturama.is_open("select_address"):
         from image_to_cash.ui import actions
         actions.click(fakturama.find("select_address", "cancel"))
-    if fakturama.is_open("order_editor"):
-        fakturama.close_editor("order_editor")
+    fakturama.close_all("order_editor")
     if fakturama.is_open("vat_editor", title="Tax-free"):
         fakturama.close_editor("vat_editor", title="Tax-free")
 
@@ -91,4 +90,4 @@ def test_address_selector_table_is_read_and_cancelled(app):
     actions.click(app.find("select_address", "cancel"))
     app.wait_closed("select_address")
     app.close_editor("order_editor")
-    assert not app.is_open("order_editor")
+    assert not app.editor_open("order_editor")

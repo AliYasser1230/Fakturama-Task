@@ -18,13 +18,12 @@ def app():
     from image_to_cash.ui.app import Fakturama
 
     fakturama = Fakturama.connect(Settings.from_env())
-    if fakturama.is_open("order_editor"):
+    if fakturama.editor_open("order_editor"):
         pytest.skip("a New Order editor is already open in Fakturama; close it first")
     fakturama.bring_to_front()
     fakturama.maximize()
     yield fakturama
-    if fakturama.is_open("order_editor"):
-        fakturama.close_editor("order_editor")
+    fakturama.close_all("order_editor")
 
 
 def test_fill_the_order_header_and_close_without_saving(app):
@@ -50,7 +49,7 @@ def test_fill_the_order_header_and_close_without_saving(app):
 
     assert app.wait_open("order_editor").name.startswith("*")
     app.close_editor("order_editor")
-    assert not app.is_open("order_editor")
+    assert not app.editor_open("order_editor")
 
 
 def test_the_discarded_order_did_not_use_up_its_number(app):
@@ -62,4 +61,4 @@ def test_the_discarded_order_did_not_use_up_its_number(app):
     app.wait_open("order_editor")
     assert actions.read_value(app.find("order_editor", "number")) == seen["number"]
     app.close_editor("order_editor")
-    assert not app.is_open("order_editor")
+    assert not app.editor_open("order_editor")

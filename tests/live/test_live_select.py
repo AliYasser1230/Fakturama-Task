@@ -18,7 +18,7 @@ def app():
     from image_to_cash.ui.app import Fakturama
 
     fakturama = Fakturama.connect(Settings.from_env())
-    if fakturama.is_open("order_editor"):
+    if fakturama.editor_open("order_editor"):
         pytest.skip("a New Order editor is already open in Fakturama; close it first")
     fakturama.bring_to_front()
     fakturama.maximize()
@@ -26,14 +26,14 @@ def app():
     for dialog in ("select_address", "select_product"):
         if fakturama.is_open(dialog):
             fakturama.click(dialog, "cancel")
-    if fakturama.is_open("order_editor"):
-        fakturama.close_editor("order_editor")
+    fakturama.close_all("order_editor")
 
 
 def test_unknown_contact_and_product_are_cancelled(app, sample_expected_path):
     from image_to_cash.errors import NotBuiltYet
     from image_to_cash.extract.pipeline import load_order_json
-    from image_to_cash.flow.debtor import select_debtor
+    from image_to_cash.flow.debtor import cancel, search_debtor
+    from image_to_cash.flow.matching import CREATE
     from image_to_cash.flow.order import open_order
     from image_to_cash.flow.products import select_product
     from image_to_cash.flow.runner import RunContext
@@ -46,8 +46,9 @@ def test_unknown_contact_and_product_are_cancelled(app, sample_expected_path):
     ctx = RunContext(order=order, app=app, settings=app.settings)
     assert open_order(ctx).ok
 
-    with pytest.raises(NotBuiltYet, match="no contact matches"):
-        select_debtor(ctx)
+    decision = search_debtor(app, order)
+    assert decision.action == CREATE, decision.reason
+    cancel(app)
     assert not app.is_open("select_address")
     assert app.read("order_editor", "cust_ref") == order.external_reference
 
@@ -56,4 +57,4 @@ def test_unknown_contact_and_product_are_cancelled(app, sample_expected_path):
     assert not app.is_open("select_product")
 
     app.close_editor("order_editor")
-    assert not app.is_open("order_editor")
+    assert not app.editor_open("order_editor")
