@@ -157,9 +157,9 @@ def scope_root(main: Node, scope: Scope) -> Node:
     return found[0]
 
 
-def locate(main: Node, locators: Locators, screen: str, control: str) -> Node:
+def locate(main: Node, locators: Locators, screen: str, control: str, scope: Scope | None = None) -> Node:
     spec = locators.screen(screen)
-    root = scope_root(main, spec.scope)
+    root = scope_root(main, scope or spec.scope)
     try:
         return resolve(root, locators.control(screen, control))
     except ControlNotFound as exc:

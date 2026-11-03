@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from typing import Any
 from image_to_cash.errors import ControlNotFound, FlowStopped, ManualReviewRequired
 from image_to_cash.settings import Settings
 from image_to_cash.ui.finder import Node, UiaNode, locate, resolve, scope_root
-from image_to_cash.ui.locators import Locators, load_locators
+from image_to_cash.ui.locators import Locators, Scope, load_locators
 from image_to_cash.ui.waits import wait_until
 
 
@@ -114,27 +115,32 @@ class Fakturama:
     def root(self) -> UiaNode:
         return UiaNode(self.window.element_info)
 
-    def find(self, screen: str, control: str) -> UiaNode:
-        return locate(self.root(), self.locators, screen, control)
+    def scope(self, screen: str, title: str | None = None) -> Scope:
+        if title is None:
+            return self.locators.screen(screen).scope
+        return Scope(tab=r"\*?" + re.escape(title))
 
-    def is_open(self, screen: str) -> bool:
+    def find(self, screen: str, control: str, title: str | None = None) -> UiaNode:
+        return locate(self.root(), self.locators, screen, control, self.scope(screen, title))
+
+    def is_open(self, screen: str, title: str | None = None) -> bool:
         try:
-            scope_root(self.root(), self.locators.screen(screen).scope)
+            scope_root(self.root(), self.scope(screen, title))
             return True
         except ControlNotFound:
             return False
 
-    def wait_open(self, screen: str, timeout: float | None = None) -> UiaNode:
-        scope = self.locators.screen(screen).scope
+    def wait_open(self, screen: str, timeout: float | None = None, title: str | None = None) -> UiaNode:
+        scope = self.scope(screen, title)
         return wait_until(lambda: scope_root(self.root(), scope),
                           timeout=timeout or self.settings.ui_timeout, what=f"screen {screen} ({scope.describe()})")
 
-    def wait_closed(self, screen: str, timeout: float | None = None) -> None:
-        wait_until(lambda: not self.is_open(screen),
+    def wait_closed(self, screen: str, timeout: float | None = None, title: str | None = None) -> None:
+        wait_until(lambda: not self.is_open(screen, title),
                    timeout=timeout or self.settings.ui_timeout, what=f"screen {screen} to close")
 
-    def wait_for(self, screen: str, control: str, timeout: float | None = None) -> UiaNode:
-        return wait_until(lambda: self.find(screen, control),
+    def wait_for(self, screen: str, control: str, timeout: float | None = None, title: str | None = None) -> UiaNode:
+        return wait_until(lambda: self.find(screen, control, title),
                           timeout=timeout or self.settings.ui_timeout, what=f"{screen}.{control}")
 
     def bring_to_front(self) -> None:
@@ -150,42 +156,42 @@ class Fakturama:
     def probe(self, screens: list[str] | None = None) -> list[ProbeResult]:
         return probe_tree(self.root(), self.locators, screens)
 
-    def close_editor(self, screen: str, timeout: float | None = None) -> None:
+    def close_editor(self, screen: str, timeout: float | None = None, title: str | None = None) -> None:
         from image_to_cash.ui import actions
 
         timeout = timeout or self.settings.ui_timeout
-        tab = self.wait_open(screen)
-        title = tab.name
-        item = next((c for c in tab.children() if c.control_type == "TabItem" and c.name == title), None)
+        tab = self.wait_open(screen, title=title)
+        tab_title = tab.name
+        item = next((c for c in tab.children() if c.control_type == "TabItem" and c.name == tab_title), None)
         if item is None:
-            raise ControlNotFound(f"no tab named {title!r} to close")
+            raise ControlNotFound(f"no tab named {tab_title!r} to close")
         actions.select_tab(item)
         self.bring_to_front()
         actions.ensure_foreground(self.root())
         actions.send_keys("^w")
 
         def closed_or_asked():
-            if not self.is_open(screen):
+            if not self.is_open(screen, title):
                 return "closed"
             dialogs = actions.open_dialogs(self.root())
             return dialogs[0] if dialogs else None
 
-        outcome = wait_until(closed_or_asked, timeout=timeout, what=f"{title!r} to close")
+        outcome = wait_until(closed_or_asked, timeout=timeout, what=f"{tab_title!r} to close")
         if outcome == "closed":
             return
         info = actions.dialog_info(outcome)
-        plan = actions.discard_plan(info, actions.editor_title(title))
+        plan = actions.discard_plan(info, actions.editor_title(tab_title))
         if plan is None:
             if "Cancel" in info.buttons:
                 actions.press_dialog_button(outcome, "Cancel")
-            raise ManualReviewRequired(f"unexpected dialog while closing {title!r}: {info}")
+            raise ManualReviewRequired(f"unexpected dialog while closing {tab_title!r}: {info}")
         if plan == "untick":
             try:
                 actions.untick_all(outcome)
             except Exception as exc:
                 actions.press_dialog_button(outcome, "Cancel")
-                raise ManualReviewRequired(f"could not discard {title!r}: {exc}") from None
+                raise ManualReviewRequired(f"could not discard {tab_title!r}: {exc}") from None
             actions.press_dialog_button(outcome, "OK")
         else:
             actions.press_dialog_button(outcome, actions.DISCARD_BUTTON)
-        self.wait_closed(screen, timeout)
+        self.wait_closed(screen, timeout, title)

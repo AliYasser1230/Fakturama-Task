@@ -144,8 +144,8 @@ def send_keys(keys: str) -> None:
 def click(node: UiaNode) -> None:
     if node.control_type in {"Button", "MenuItem", "SplitButton", "Hyperlink"} and has_pattern(node, "Invoke"):
         _pattern(node, "Invoke").Invoke()
-    elif node.control_type == "TabItem" and has_pattern(node, "SelectionItem"):
-        _pattern(node, "SelectionItem").Select()
+    elif node.control_type == "TabItem":
+        select_tab(node)
     else:
         ensure_foreground(node)
         node.wrapper().click_input()
@@ -239,11 +239,25 @@ def set_checkbox(node: UiaNode, checked: bool, *, timeout: float = 5.0) -> None:
         raise VerificationFailed(f"{node} did not become {'ticked' if checked else 'unticked'}") from None
 
 
+def is_selected(node: UiaNode) -> bool:
+    try:
+        return bool(_pattern(node, "SelectionItem").CurrentIsSelected)
+    except Exception:
+        return False
+
+
 def select_tab(node: UiaNode, *, timeout: float = 5.0) -> None:
-    item = _pattern(node, "SelectionItem")
-    if not item.CurrentIsSelected:
-        item.Select()
-    wait_until(lambda: bool(_pattern(node, "SelectionItem").CurrentIsSelected), timeout=timeout, what=f"{node} to be selected")
+    if is_selected(node):
+        return
+    try:
+        _pattern(node, "SelectionItem").Select()
+    except Exception:
+        ensure_foreground(node)
+        node.wrapper().click_input()
+    try:
+        wait_until(lambda: is_selected(node), timeout=timeout, what=f"{node} to be selected")
+    except Exception:
+        raise VerificationFailed(f"tab {node.name!r} did not become selected") from None
 
 
 def dialog_info(window: UiaNode) -> DialogInfo:

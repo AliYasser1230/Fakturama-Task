@@ -158,9 +158,16 @@ Start Fakturama with no editor open, then:
 $env:FAKTURAMA_LIVE = "1"; .venv\Scripts\python -m pytest tests/live -v
 ```
 
-It opens a New Order, sets Cust.Ref., Date and the Net price mode (each read back), opens
-and cancels Select the address, then closes the order **without saving** and checks that
-the next New Order still gets the same number. Nothing is saved.
+The tests:
+
+- open a New Order, set Cust.Ref., Date and the Net price mode (each read back), open and
+  cancel Select the address, close the order **without saving**, and check that the next
+  New Order still gets the same number;
+- open Data > VATs, read the list with OCR, find the `Tax-free` row, open it by
+  double-click and read Name, VAT code and Value from its editor;
+- read the column headers of Data > Documents and of the Select the address table.
+
+Nothing is saved.
 
 ## Extracting the order data
 
@@ -211,6 +218,16 @@ Tesseract if installed.
   run stops for manual review.
 - Payment-code names end with a space (`'Credit transfer '`); names are compared with
   surrounding spaces ignored.
+- The lists (products, contacts, VATs, documents) are drawn by Fakturama itself, so UI
+  Automation sees no rows. They are read with OCR: the table area (found through UIA) is
+  captured, read at 2x, words are grouped into rows and put under the column whose header
+  starts at or before them. In a selected row the white column lines read as `I`/`|`;
+  those tokens are dropped. A row is clicked at the position OCR found for it, and every
+  selection is confirmed by its effect (the editor or the address it fills in).
+- The list tabs (VATs, Documents, ...) do not support UI Automation's Select; the tool
+  clicks them instead and checks that they became selected.
+- An existing record opens in an editor tab named after it (e.g. `Tax-free`). The
+  standard VAT cannot be deleted (its delete button stays disabled).
 
 ## Progress
 
@@ -219,7 +236,7 @@ Tesseract if installed.
 | 1 | Repo structure, dependencies, sample image | done |
 | 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done (Claude call tested with a fake client; first live call needs an API key) |
 | 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
-| 4 | UI helpers and `locators.yaml` | in progress: 4a locators and finder; 4b connect, waits, `probe`; 4c actions (live-tested). 4d table OCR next |
+| 4 | UI helpers and `locators.yaml` | done: locators and finder, connect and waits, actions with read-back, table OCR; 5 live tests pass. Editing item-line cells moves to step 6 (needs a product line) |
 | 5 | Stage 1: open New Order | — |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | — |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | — |
