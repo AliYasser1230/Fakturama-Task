@@ -152,7 +152,7 @@ class RunReport:
         if self.extraction:
             lines.append(f"- Extraction: {self.extraction.get('source')}, OCR {self.extraction.get('ocr_engine')}")
         if report["open_editors"]:
-            lines.append(f"- Open editors left in Fakturama: {', '.join(report['open_editors'])}")
+            lines.append(f"- Open editors left in Fakturama: {'; '.join(report['open_editors'])}")
         lines += ["", "## Stages", "", "```", *format_run(result), "```"]
         if report["screenshots"]:
             lines += ["", "## Screenshots", ""]

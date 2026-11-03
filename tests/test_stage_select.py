@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from image_to_cash.errors import ManualReviewRequired, NotBuiltYet
@@ -197,3 +199,14 @@ def test_fakturama_selecting_a_wrong_contact_itself_fails_the_address_check(orde
     with pytest.raises(GateFailed) as exc:
         select_debtor(_ready(app, order))
     assert "Invoice address street" in [c.what for c in exc.value.result.checks if not c.ok]
+
+
+def test_an_existing_vat_with_another_code_stops_for_review(order):
+    from image_to_cash.flow.vat import ensure_vat
+
+    app = FakeApp(tables={("vats_list", "table"): grid(("Standard", "Name", "Description", "Value"),
+                                                       ("", "VAT 19%", "VAT 19%", "19.00 %"))})
+    app.vat_codes["VAT 19%"] = "AE (Reverse charge)"
+    with pytest.raises(ManualReviewRequired, match="VAT code is 'AE"):
+        ensure_vat(app, Decimal("19"))
+    assert not any(s[0] == "vat_editor" for s in app.saved)

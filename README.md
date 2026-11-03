@@ -5,7 +5,53 @@ Turns one order image into a saved, verified **Order** and a linked, paid **Invo
 Microsoft UI Automation, uses OCR for controls UIA cannot see, and uses Claude to read the
 image. It never uses fixed screen coordinates.
 
-> **Status:** work in progress. See [Progress](#progress) below.
+> **Status:** complete. All five stages run end to end against Fakturama 2.2.0 on
+> Windows 11, from an empty workspace and from one that already has the master data. See
+> the [demo](#demo), the [known limitations](#known-limitations) and
+> [what I would do with 3 more hours](#if-i-had-3-more-hours).
+
+## Demo
+
+**Recording:** [`docs/demo/fakturama_full_run.mp4`](docs/demo/fakturama_full_run.mp4)
+(3:21, real time, a caption per stage with the task sections it covers). Fakturama starts
+from an **empty workspace**, so this one run goes through every creation branch: payment
+method, contact with a separate delivery address, VAT rate and both products. Then it saves
+the Order and completes the linked, paid Invoice. Nobody touches Fakturama during the run.
+
+| Stage | Checks | What happened in the recorded run |
+|---|---|---|
+| 1 Open the New Order | 6 | New Order PO000001 from the toolbar; Date, Cust.Ref., Net, With VAT set and read back |
+| 2 Select or create the Debtor | 56 | No contact matched: Bank Transfer created, contact CUST000001 created with invoice and delivery address, saved once, reselected; both order addresses checked |
+| 3 Select or create each Product | 69 | VAT 19% (code S) and both products created and reselected; Qty., U.Price and Discount set; Total Net 450.00 after line 1, 570.00 after line 2 |
+| 4 Complete and save the Order | 29 | Lines, discount 0%, free shipping and totals 570.00 / 108.30 / 678.30 checked; saved once; one open Order row in Data > Documents; linked Invoice opened from the Order |
+| 5 Complete and verify the Invoice | 45 | Copied data checked; Bank Transfer; paid on Jul 18, 2026 with Value 678.30; saved once; Documents: Invoice paid, Order still open |
+
+205 checks, none failed, in about 3 minutes. The run's own report is in
+[`docs/demo/run_report/report.md`](docs/demo/run_report/report.md). On a workspace that
+already has the contact, payment method, VAT and products, the same image takes the
+selection branches instead (101 checks, about 90 seconds).
+
+The video starts when the run starts and ends 5 seconds after it finishes. Two frames
+(0.4 s) where a console window from a status check I ran on the host covered the screen
+were dropped; nothing else was cut.
+
+**Annotated screenshots** ([`docs/screenshots/`](docs/screenshots/)), each with the task
+sections it shows and the values the run checked:
+
+| # | Screenshot | Shows |
+|---|---|---|
+| 1 | [input order](docs/screenshots/01_input_order.png) | the order image and the values the flow uses |
+| 2 | [stage 1](docs/screenshots/02_stage1_new_order.png) | New Order with the proposed No., Date, Cust.Ref., Net, With VAT |
+| 3 | [payment method](docs/screenshots/03_stage2_payment_method.png) | Bank Transfer created and found in Data > terms of payment |
+| 4 | [contact addresses](docs/screenshots/04_stage2_contact_addresses.png) | New Debtor: name split, delivery address with the Delivery role |
+| 5 | [contact payment](docs/screenshots/05_stage2_contact_payment.png) | Miscellaneous: alias, Net, discount 0%, Bank Transfer |
+| 6 | [VAT](docs/screenshots/06_stage3_vat.png) | VAT 19% with code S (Standard rate) |
+| 7 | [product](docs/screenshots/07_stage3_product.png) | Product with Price (gross) 297.50 = 250.00 x 1.19 |
+| 8 | [lines](docs/screenshots/08_stage3_lines.png) | both lines and the totals 570.00 / 108.30 / 678.30 |
+| 9 | [order saved](docs/screenshots/09_stage4_order_saved.png) | saved Order, its open row in Documents, the follow-up Invoice button |
+| 10 | [invoice paid](docs/screenshots/10_stage5_invoice_paid.png) | linked Invoice paid on Jul 18, 2026, Value = Total, its paid row in Documents |
+
+![Stage 5: the linked Invoice, paid and verified in Data > Documents](docs/screenshots/10_stage5_invoice_paid.png)
 
 ## How it works
 
@@ -74,7 +120,10 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   ├── fixtures/uia/             slim copies of the recorded Fakturama control trees
 │   ├── fixtures/ocr/             OCR of live Fakturama tables
 │   └── live/                     live UI tests against a running Fakturama (opt-in)
-└── docs/screenshots/             annotated screenshots of a run
+└── docs/
+    ├── demo/                     recording of a full run and that run's report
+    ├── screenshots/              annotated screenshots of the same run
+    └── design_doc.md / .pdf      the design, condensed to 3 pages
 ```
 
 ## Development setup
@@ -96,7 +145,8 @@ cp .env.example .env                            # then add your ANTHROPIC_API_KE
    Windows display language to English, because the OCR uses English.
 2. **Fakturama.** Download the Windows version from
    <https://www.fakturama.info/download/>, install it, start it once and finish the first-start
-   dialog. A new, empty workspace is best for testing. Keep Fakturama's language English:
+   dialog. A new, empty workspace is best for testing (later, File > Select Workspace
+   switches to another empty folder; Fakturama restarts). Keep Fakturama's language English:
    the spec and `config/locators.yaml` use the English labels.
 3. **Get this project** onto Windows, e.g. to `C:\Fakturama-Task`. Either use GitHub's
    *Code > Download ZIP* and unzip it, or clone it with GitHub Desktop or git.
@@ -249,6 +299,11 @@ python main.py extract samples/order_WEB-2026-0714-A17.png --out order.json --sa
 python main.py extract samples/order_WEB-2026-0714-A17.png --raw samples/order_WEB-2026-0714-A17.raw.json
 ```
 
+No API key was available while this was built, so every live run used the saved,
+hand-checked transcription (`--raw`). It goes through the same OCR cross-check,
+normalization and arithmetic checks as Claude's output. The Claude call itself is
+tested with a fake client.
+
 The validated order goes to stdout (or `--out`); warnings and a one-line summary go to
 stderr. Exit code `0` = accepted, `1` = rejected (every problem is listed, and Fakturama is
 never touched). The four steps:
@@ -271,6 +326,16 @@ Tesseract if installed.
   extraction and the OCR cross-check can be developed and tested without Windows.
 - **Two schema layers**: a verbatim `Raw*` layer (what Claude returns and OCR is compared
   against) and a typed `OrderData` layer (what the Fakturama flow uses).
+- **Payment method before New Contact.** Fakturama 2.2.0 fills a contact's Payment list
+  when the contact editor opens, so the method (task 2.10.1–2.10.6) is found or created
+  before New Contact (2.5) and then selected (2.10). The result is the same.
+- **A read-back mismatch stops the run** at once instead of re-entering the value once:
+  a field that does not take a value usually means a wrong control or a Fakturama rule,
+  and a retry would hide that.
+- **OCR is the main way to read Fakturama's lists**, not only a fallback: the lists are
+  drawn by Fakturama itself, so UI Automation sees no rows. The vision-LLM locator of last
+  resort was not built; UIA and OCR covered every control the flow needs.
+- **No duplicate-order guard yet** (see [3 more hours](#if-i-had-3-more-hours)).
 
 ## Fakturama 2.2.0 notes (found while building the UI driver)
 
@@ -353,6 +418,45 @@ Tesseract if installed.
   dropdown has the focus). Menu entries carry their shortcut when an editor is active
   (`Close\tCtrl+W`), so menu locators accept that suffix.
 
+## Known limitations
+
+- Run live on the one sample image, both from an empty workspace and with existing master
+  data. The other branches (an unpaid order, identical billing and delivery address,
+  ambiguous or conflicting contacts, products, VATs and payment methods) are covered by
+  unit tests against a simulated Fakturama, not live.
+- The Claude extraction call has not been run live (see
+  [Extracting the order data](#extracting-the-order-data)).
+- The same image can be booked twice: master data is reused, but a second run creates a
+  second Order and Invoice.
+- English Fakturama UI and English Windows OCR; dates shown as `Jul 14, 2026`. Fakturama
+  shows `$` (its locale) while the order is in EUR; amounts are compared as numbers and
+  the order currency is checked against `EXPECTED_CURRENCY`.
+- Reading Fakturama's lists with OCR is the slowest part and needs re-reads of single
+  cells (cropped, black and white, 3x). A run takes about 90 seconds with existing master
+  data and about 3 minutes from an empty workspace.
+- The saved Order, Invoice and created records stay open as editor tabs after a run.
+
+## If I had 3 more hours
+
+In order of value:
+
+1. **Stop a second booking of the same image (30 min).** Before stage 1, search Data >
+   Documents for the Cust.Ref. and stop for review when an Order with it exists. The
+   design doc planned this; testing booked the sample twice.
+2. **Run the real Claude extraction and measure it (45 min).** With an API key, run it on
+   the sample and on 5–10 variants (photo, skew, low resolution, a second VAT rate, an
+   unpaid order, a SEPA payment). Record which check catches which error, and add the
+   variants as test fixtures.
+3. **Run the remaining branches live (60 min).** The unpaid path, one address with both
+   roles, a near-duplicate contact (Fakturama's duplicate warning already stops the run),
+   and a VAT or product that exists with conflicting values. Record each as a live test.
+4. **Resume after a stop (30 min).** A stop leaves the unsaved Order open for a person. A
+   `--resume` option could discard it the same safe way (untick in Save Parts) and run
+   again; master data saved before the stop is already found and reused.
+5. **Make runs faster (15 min).** Remember each table's column layout after the first
+   read and read only the row that is needed. Close the master-data editors after saving
+   so the next screens need fewer UI Automation lookups.
+
 ## Progress
 
 | # | Step | Status |
@@ -366,4 +470,4 @@ Tesseract if installed.
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | done and live-tested: a full `main.py run` from the image completed all five stages (PO000002 saved and open, INV000002 saved as paid on Jul 18, 2026 for $678.30) |
 | 8 | Create missing Debtor, Payment Method, VAT, Product | done and live-tested: contact (with delivery address), Bank Transfer, VAT 19% and both products created, saved once and reselected |
 | 9 | Run report and manual-review stops | done: report folder with checks and screenshots per stage, `manual_review.json` on every stop; live-tested |
-| 10 | README, screenshots / recording, written answers | — |
+| 10 | README, screenshots / recording, written answers | done: recording and annotated screenshots of a full run from an empty workspace, known limitations, the "3 more hours" answer, design doc condensed to [`docs/design_doc.md`](docs/design_doc.md) |

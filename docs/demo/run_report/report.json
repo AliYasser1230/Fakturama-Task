@@ -1,0 +1,1363 @@
+{
+  "started": "2026-11-03T22:11:02",
+  "finished": "2026-11-03T22:14:06",
+  "outcome": "completed",
+  "order": {
+    "external_reference": "WEB-2026-0714-A17",
+    "order_date": "2026-07-14",
+    "company": "Northstar Office GmbH",
+    "items": [
+      {
+        "sku": "CHR-ERG-01",
+        "quantity": "2",
+        "unit_net_price": "250.00"
+      },
+      {
+        "sku": "MAT-DESK-02",
+        "quantity": "3",
+        "unit_net_price": "40.00"
+      }
+    ],
+    "totals": {
+      "net": "570.00",
+      "vat": "108.30",
+      "gross": "678.30"
+    },
+    "currency": "EUR",
+    "payment": {
+      "method": "Bank Transfer",
+      "status": "PAID",
+      "date": "2026-07-18"
+    }
+  },
+  "extraction": {
+    "source": "raw-json",
+    "image": "samples\\order_WEB-2026-0714-A17.png",
+    "ocr_engine": "windows",
+    "issues": []
+  },
+  "fakturama": {
+    "title": "Fakturama - C:\\FakturamaDemo",
+    "pid": 6212
+  },
+  "stages": [
+    {
+      "stage": "1",
+      "title": "Open the New Order",
+      "status": "passed",
+      "checks": [
+        {
+          "what": "No. (proposed, unchanged)",
+          "expected": "PO000001",
+          "shown": "PO000001",
+          "ok": true
+        },
+        {
+          "what": "Date",
+          "expected": "2026-07-14",
+          "shown": "Jul 14, 2026",
+          "ok": true
+        },
+        {
+          "what": "Cust.Ref.",
+          "expected": "WEB-2026-0714-A17",
+          "shown": "WEB-2026-0714-A17",
+          "ok": true
+        },
+        {
+          "what": "price mode",
+          "expected": "Net",
+          "shown": "Net",
+          "ok": true
+        },
+        {
+          "what": "VAT",
+          "expected": "With VAT",
+          "shown": "With VAT",
+          "ok": true
+        },
+        {
+          "what": "New Order tab still open",
+          "expected": "open",
+          "shown": "open",
+          "ok": true
+        }
+      ],
+      "notes": [
+        "Fakturama proposed No. PO000001"
+      ]
+    },
+    {
+      "stage": "2",
+      "title": "Select or create the Debtor",
+      "status": "passed",
+      "checks": [
+        {
+          "what": "payment Name",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "payment Description",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "payment Account (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "payment code",
+          "expected": "Credit transfer",
+          "shown": "Credit transfer ",
+          "ok": true
+        },
+        {
+          "what": "payment cash_discount (0)",
+          "expected": "0",
+          "shown": "0%",
+          "ok": true
+        },
+        {
+          "what": "payment discount_days (0)",
+          "expected": "0",
+          "shown": "0",
+          "ok": true
+        },
+        {
+          "what": "payment net_days (0)",
+          "expected": "0",
+          "shown": "0",
+          "ok": true
+        },
+        {
+          "what": "payment text_unpaid (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "payment text_deposit (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "payment text_paid (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "standard payment unchanged",
+          "expected": "Cash",
+          "shown": "Cash",
+          "ok": true
+        },
+        {
+          "what": "payment method saved",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "stored payment Name",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "stored payment Description",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "stored payment Account (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored payment code",
+          "expected": "Credit transfer",
+          "shown": "Credit transfer ",
+          "ok": true
+        },
+        {
+          "what": "stored payment cash_discount (0)",
+          "expected": "0",
+          "shown": "0%",
+          "ok": true
+        },
+        {
+          "what": "stored payment discount_days (0)",
+          "expected": "0",
+          "shown": "0",
+          "ok": true
+        },
+        {
+          "what": "stored payment net_days (0)",
+          "expected": "0",
+          "shown": "0",
+          "ok": true
+        },
+        {
+          "what": "stored payment text_unpaid (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored payment text_deposit (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored payment text_paid (blank)",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored standard payment unchanged",
+          "expected": "Cash",
+          "shown": "Cash",
+          "ok": true
+        },
+        {
+          "what": "Customer ID (proposed, unchanged)",
+          "expected": "CUST000001",
+          "shown": "CUST000001",
+          "ok": true
+        },
+        {
+          "what": "Company",
+          "expected": "Northstar Office GmbH",
+          "shown": "Northstar Office GmbH",
+          "ok": true
+        },
+        {
+          "what": "Salutation",
+          "expected": "---",
+          "shown": "---",
+          "ok": true
+        },
+        {
+          "what": "First Name",
+          "expected": "Marta",
+          "shown": "Marta",
+          "ok": true
+        },
+        {
+          "what": "Last Name",
+          "expected": "Klein",
+          "shown": "Klein",
+          "ok": true
+        },
+        {
+          "what": "Main address street",
+          "expected": "Friedrichstrasse 88",
+          "shown": "Friedrichstrasse 88",
+          "ok": true
+        },
+        {
+          "what": "Main address zip",
+          "expected": "10117",
+          "shown": "10117",
+          "ok": true
+        },
+        {
+          "what": "Main address city",
+          "expected": "Berlin",
+          "shown": "Berlin",
+          "ok": true
+        },
+        {
+          "what": "Main address email",
+          "expected": "marta.klein@example.test",
+          "shown": "marta.klein@example.test",
+          "ok": true
+        },
+        {
+          "what": "Main address phone",
+          "expected": "+49 30 5550 1420",
+          "shown": "+49 30 5550 1420",
+          "ok": true
+        },
+        {
+          "what": "Main address country",
+          "expected": "Germany",
+          "shown": "Germany",
+          "ok": true
+        },
+        {
+          "what": "Main address role",
+          "expected": "Invoice address",
+          "shown": "Invoice address",
+          "ok": true
+        },
+        {
+          "what": "additional address additional_name",
+          "expected": "Northstar Office Warehouse",
+          "shown": "Northstar Office Warehouse",
+          "ok": true
+        },
+        {
+          "what": "additional address street",
+          "expected": "Beusselstrasse 44",
+          "shown": "Beusselstrasse 44",
+          "ok": true
+        },
+        {
+          "what": "additional address zip",
+          "expected": "10553",
+          "shown": "10553",
+          "ok": true
+        },
+        {
+          "what": "additional address city",
+          "expected": "Berlin",
+          "shown": "Berlin",
+          "ok": true
+        },
+        {
+          "what": "additional address country",
+          "expected": "Germany",
+          "shown": "Germany",
+          "ok": true
+        },
+        {
+          "what": "additional address role",
+          "expected": "Delivery address",
+          "shown": "Delivery address",
+          "ok": true
+        },
+        {
+          "what": "Alias name",
+          "expected": "NORTHSTAR-BERLIN",
+          "shown": "NORTHSTAR-BERLIN",
+          "ok": true
+        },
+        {
+          "what": "Discount",
+          "expected": "0%",
+          "shown": "0%",
+          "ok": true
+        },
+        {
+          "what": "Net or Gross",
+          "expected": "Net",
+          "shown": "Net",
+          "ok": true
+        },
+        {
+          "what": "contact Payment",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "new contact saved",
+          "expected": "CUST000001",
+          "shown": "Northstar Office GmbH, Marta Klein",
+          "ok": true
+        },
+        {
+          "what": "new contact reselected in the order",
+          "expected": "CUST000001",
+          "shown": "CUSTOOOOOI",
+          "ok": "exact"
+        },
+        {
+          "what": "Invoice address name",
+          "expected": "Northstar Office GmbH",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address contact",
+          "expected": "Marta Klein",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address street",
+          "expected": "Friedrichstrasse 88",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address ZIP",
+          "expected": "10117",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address City",
+          "expected": "Berlin",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address name (Fakturama prints the company)",
+          "expected": "Northstar Office Warehouse or Northstar Office GmbH",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address street",
+          "expected": "Beusselstrasse 44",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address ZIP",
+          "expected": "10553",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address City",
+          "expected": "Berlin",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        }
+      ],
+      "notes": [
+        "no contact matches 'Northstar Office GmbH'",
+        "created contact CUST000001 (saved as 'Northstar Office GmbH, Marta Klein') and selected it in the order",
+        "payment method resolved before New Contact: Fakturama 2.2.0 fills the contact's Payment list when the contact editor opens"
+      ]
+    },
+    {
+      "stage": "3",
+      "title": "Select or create each Product",
+      "status": "passed",
+      "checks": [
+        {
+          "what": "VAT Name",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "VAT Description",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "VAT code (E-Invoice)",
+          "expected": "S (Standard rate)",
+          "shown": "S (Standard rate)",
+          "ok": true
+        },
+        {
+          "what": "VAT Value",
+          "expected": "19%",
+          "shown": "19%",
+          "ok": true
+        },
+        {
+          "what": "standard VAT unchanged",
+          "expected": "Tax-free",
+          "shown": "Tax-free",
+          "ok": true
+        },
+        {
+          "what": "VAT saved",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "stored VAT Name",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "stored VAT Description",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "stored VAT code (E-Invoice)",
+          "expected": "S (Standard rate)",
+          "shown": "S (Standard rate)",
+          "ok": true
+        },
+        {
+          "what": "stored VAT Value",
+          "expected": "19%",
+          "shown": "19%",
+          "ok": true
+        },
+        {
+          "what": "stored standard VAT unchanged",
+          "expected": "Tax-free",
+          "shown": "Tax-free",
+          "ok": true
+        },
+        {
+          "what": "Item Number",
+          "expected": "CHR-ERG-01",
+          "shown": "CHR-ERG-01",
+          "ok": true
+        },
+        {
+          "what": "product Name",
+          "expected": "Ergonomic Desk Chair",
+          "shown": "Ergonomic Desk Chair",
+          "ok": true
+        },
+        {
+          "what": "product Description",
+          "expected": "Ergonomic Desk Chair",
+          "shown": "Ergonomic Desk Chair",
+          "ok": true
+        },
+        {
+          "what": "Price (gross) = unit net x (1 + VAT)",
+          "expected": "297.50",
+          "shown": "$297.50",
+          "ok": true
+        },
+        {
+          "what": "cost price (net)",
+          "expected": "0.00",
+          "shown": "$0.00",
+          "ok": true
+        },
+        {
+          "what": "product VAT",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "Stock",
+          "expected": "0.00",
+          "shown": "0.00",
+          "ok": true
+        },
+        {
+          "what": "category left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "gtin left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "supplier_code left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "product saved",
+          "expected": "Ergonomic Desk Chair",
+          "shown": "Ergonomic Desk Chair",
+          "ok": true
+        },
+        {
+          "what": "stored Item Number",
+          "expected": "CHR-ERG-01",
+          "shown": "CHR-ERG-01",
+          "ok": true
+        },
+        {
+          "what": "stored product Name",
+          "expected": "Ergonomic Desk Chair",
+          "shown": "Ergonomic Desk Chair",
+          "ok": true
+        },
+        {
+          "what": "stored product Description",
+          "expected": "Ergonomic Desk Chair",
+          "shown": "Ergonomic Desk Chair",
+          "ok": true
+        },
+        {
+          "what": "stored Price (gross) = unit net x (1 + VAT)",
+          "expected": "297.50",
+          "shown": "$297.50",
+          "ok": true
+        },
+        {
+          "what": "stored cost price (net)",
+          "expected": "0.00",
+          "shown": "$0.00",
+          "ok": true
+        },
+        {
+          "what": "stored product VAT",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "stored Stock",
+          "expected": "0.00",
+          "shown": "0.00",
+          "ok": true
+        },
+        {
+          "what": "stored category left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored gtin left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored supplier_code left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "new product CHR-ERG-01 selected in the order",
+          "expected": "CHR-ERG-01",
+          "shown": "CHR-ERG-OI",
+          "ok": true
+        },
+        {
+          "what": "order line for CHR-ERG-01",
+          "expected": "CHR-ERG-01",
+          "shown": "CHR-ERG-OI",
+          "ok": true
+        },
+        {
+          "what": "line CHR-ERG-01 Qty.",
+          "expected": "2",
+          "shown": "2",
+          "ok": true
+        },
+        {
+          "what": "line CHR-ERG-01 U.Price",
+          "expected": "250.00",
+          "shown": "250.00",
+          "ok": true
+        },
+        {
+          "what": "line CHR-ERG-01 Discount",
+          "expected": "10%",
+          "shown": "10",
+          "ok": true
+        },
+        {
+          "what": "Total Net after CHR-ERG-01 (line Price 450.00 = qty x unit x (1 - discount))",
+          "expected": "450.00",
+          "shown": "$450.00",
+          "ok": true
+        },
+        {
+          "what": "VAT after CHR-ERG-01 (19% on the lines)",
+          "expected": "85.50",
+          "shown": "$85.50",
+          "ok": true
+        },
+        {
+          "what": "VAT 19% in VATs",
+          "expected": "19%",
+          "shown": "19.00 %",
+          "ok": true
+        },
+        {
+          "what": "existing VAT 19% VAT code",
+          "expected": "S (Standard rate)",
+          "shown": "S (Standard rate)",
+          "ok": true
+        },
+        {
+          "what": "Item Number",
+          "expected": "MAT-DESK-02",
+          "shown": "MAT-DESK-02",
+          "ok": true
+        },
+        {
+          "what": "product Name",
+          "expected": "Anti-Fatigue Desk Mat",
+          "shown": "Anti-Fatigue Desk Mat",
+          "ok": true
+        },
+        {
+          "what": "product Description",
+          "expected": "Anti-Fatigue Desk Mat",
+          "shown": "Anti-Fatigue Desk Mat",
+          "ok": true
+        },
+        {
+          "what": "Price (gross) = unit net x (1 + VAT)",
+          "expected": "47.60",
+          "shown": "$47.60",
+          "ok": true
+        },
+        {
+          "what": "cost price (net)",
+          "expected": "0.00",
+          "shown": "$0.00",
+          "ok": true
+        },
+        {
+          "what": "product VAT",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "Stock",
+          "expected": "0.00",
+          "shown": "0.00",
+          "ok": true
+        },
+        {
+          "what": "category left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "gtin left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "supplier_code left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "product saved",
+          "expected": "Anti-Fatigue Desk Mat",
+          "shown": "Anti-Fatigue Desk Mat",
+          "ok": true
+        },
+        {
+          "what": "stored Item Number",
+          "expected": "MAT-DESK-02",
+          "shown": "MAT-DESK-02",
+          "ok": true
+        },
+        {
+          "what": "stored product Name",
+          "expected": "Anti-Fatigue Desk Mat",
+          "shown": "Anti-Fatigue Desk Mat",
+          "ok": true
+        },
+        {
+          "what": "stored product Description",
+          "expected": "Anti-Fatigue Desk Mat",
+          "shown": "Anti-Fatigue Desk Mat",
+          "ok": true
+        },
+        {
+          "what": "stored Price (gross) = unit net x (1 + VAT)",
+          "expected": "47.60",
+          "shown": "$47.60",
+          "ok": true
+        },
+        {
+          "what": "stored cost price (net)",
+          "expected": "0.00",
+          "shown": "$0.00",
+          "ok": true
+        },
+        {
+          "what": "stored product VAT",
+          "expected": "VAT 19%",
+          "shown": "VAT 19%",
+          "ok": true
+        },
+        {
+          "what": "stored Stock",
+          "expected": "0.00",
+          "shown": "0.00",
+          "ok": true
+        },
+        {
+          "what": "stored category left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored gtin left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "stored supplier_code left blank",
+          "expected": "",
+          "shown": "",
+          "ok": true
+        },
+        {
+          "what": "new product MAT-DESK-02 selected in the order",
+          "expected": "MAT-DESK-02",
+          "shown": "Fakturama selected the only product matching the SKU itself",
+          "ok": true
+        },
+        {
+          "what": "order line for MAT-DESK-02",
+          "expected": "MAT-DESK-02",
+          "shown": "CHR-ERG-OI, MAT-DESK-02",
+          "ok": true
+        },
+        {
+          "what": "line MAT-DESK-02 Qty.",
+          "expected": "3",
+          "shown": "3",
+          "ok": true
+        },
+        {
+          "what": "line MAT-DESK-02 U.Price",
+          "expected": "40.00",
+          "shown": "40.00",
+          "ok": true
+        },
+        {
+          "what": "line MAT-DESK-02 Discount",
+          "expected": "0%",
+          "shown": "0",
+          "ok": true
+        },
+        {
+          "what": "Total Net after MAT-DESK-02 (line Price 120.00 = qty x unit x (1 - discount))",
+          "expected": "570.00",
+          "shown": "$570.00",
+          "ok": true
+        },
+        {
+          "what": "VAT after MAT-DESK-02 (19% on the lines)",
+          "expected": "108.30",
+          "shown": "$108.30",
+          "ok": true
+        }
+      ],
+      "notes": [
+        "2 line(s) completed in source order"
+      ]
+    },
+    {
+      "stage": "4",
+      "title": "Complete and save the Order",
+      "status": "passed",
+      "checks": [
+        {
+          "what": "Invoice address name",
+          "expected": "Northstar Office GmbH",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address contact",
+          "expected": "Marta Klein",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address street",
+          "expected": "Friedrichstrasse 88",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address ZIP",
+          "expected": "10117",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address City",
+          "expected": "Berlin",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address name (Fakturama prints the company)",
+          "expected": "Northstar Office Warehouse or Northstar Office GmbH",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address street",
+          "expected": "Beusselstrasse 44",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address ZIP",
+          "expected": "10553",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address City",
+          "expected": "Berlin",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "order lines",
+          "expected": "2",
+          "shown": "CHR-ERG-OI, MAT-DESK-02",
+          "ok": true
+        },
+        {
+          "what": "order line CHR-ERG-01 Name",
+          "expected": "Ergonomic Desk Chair",
+          "shown": "Ergonomic De...",
+          "ok": true
+        },
+        {
+          "what": "order line CHR-ERG-01 Qty.",
+          "expected": "2",
+          "shown": "2.00",
+          "ok": true
+        },
+        {
+          "what": "order line CHR-ERG-01 U.Price",
+          "expected": "250.00",
+          "shown": "S250.oo",
+          "ok": true
+        },
+        {
+          "what": "order line MAT-DESK-02 Name",
+          "expected": "Anti-Fatigue Desk Mat",
+          "shown": "Anti-Fatigue D...",
+          "ok": true
+        },
+        {
+          "what": "order line MAT-DESK-02 Qty.",
+          "expected": "3",
+          "shown": "3.00",
+          "ok": true
+        },
+        {
+          "what": "order line MAT-DESK-02 U.Price",
+          "expected": "40.00",
+          "shown": "S40.oo",
+          "ok": true
+        },
+        {
+          "what": "order Discount",
+          "expected": "0%",
+          "shown": "0%",
+          "ok": true
+        },
+        {
+          "what": "Shipping",
+          "expected": "Free of shipping costs",
+          "shown": "Free of shipping costs",
+          "ok": true
+        },
+        {
+          "what": "Shipping amount",
+          "expected": "0.00",
+          "shown": "$0.00",
+          "ok": true
+        },
+        {
+          "what": "order Total Net",
+          "expected": "570.00",
+          "shown": "$570.00",
+          "ok": true
+        },
+        {
+          "what": "order VAT",
+          "expected": "108.30",
+          "shown": "$108.30",
+          "ok": true
+        },
+        {
+          "what": "order Total",
+          "expected": "678.30",
+          "shown": "$678.30",
+          "ok": true
+        },
+        {
+          "what": "order saved",
+          "expected": "PO000001",
+          "shown": "PO000001",
+          "ok": true
+        },
+        {
+          "what": "Order in Documents: number",
+          "expected": "PO000001",
+          "shown": "POOOOOOI",
+          "ok": true
+        },
+        {
+          "what": "Order in Documents: Date",
+          "expected": "2026-07-14",
+          "shown": "Jul 14, 2026",
+          "ok": true
+        },
+        {
+          "what": "Order in Documents: Cust.Ref.",
+          "expected": "WEB-2026-0714-A17",
+          "shown": "WEB-2026...",
+          "ok": true
+        },
+        {
+          "what": "Order in Documents: State",
+          "expected": "open",
+          "shown": "open",
+          "ok": true
+        },
+        {
+          "what": "Order in Documents: Total",
+          "expected": "678.30",
+          "shown": "'\"78.30', re-read '$678.30'",
+          "ok": true
+        },
+        {
+          "what": "linked New Invoice opened from the Order's follow-up Invoice",
+          "expected": "open",
+          "shown": "open",
+          "ok": true
+        }
+      ],
+      "notes": [
+        "order PO000001 saved as 'PO000001'"
+      ]
+    },
+    {
+      "stage": "5",
+      "title": "Complete and verify the linked Invoice",
+      "status": "passed",
+      "checks": [
+        {
+          "what": "invoice Cust.Ref. (copied)",
+          "expected": "WEB-2026-0714-A17",
+          "shown": "WEB-2026-0714-A17",
+          "ok": true
+        },
+        {
+          "what": "invoice Order Date (copied)",
+          "expected": "2026-07-14",
+          "shown": "Jul 14, 2026",
+          "ok": true
+        },
+        {
+          "what": "invoice VAT mode (copied)",
+          "expected": "With VAT",
+          "shown": "With VAT",
+          "ok": true
+        },
+        {
+          "what": "invoice price mode (copied)",
+          "expected": "Net",
+          "shown": "Net",
+          "ok": true
+        },
+        {
+          "what": "Invoice address name",
+          "expected": "Northstar Office GmbH",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address contact",
+          "expected": "Marta Klein",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address street",
+          "expected": "Friedrichstrasse 88",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address ZIP",
+          "expected": "10117",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Invoice address City",
+          "expected": "Berlin",
+          "shown": "Northstar Office GmbH / Marta Klein / Friedrichstrasse 88 / DE-10117 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address name (Fakturama prints the company)",
+          "expected": "Northstar Office Warehouse or Northstar Office GmbH",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address street",
+          "expected": "Beusselstrasse 44",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address ZIP",
+          "expected": "10553",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "Delivery address City",
+          "expected": "Berlin",
+          "shown": "Northstar Office GmbH / Marta Klein / Beusselstrasse 44 / DE-10553 Berlin / Germany",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) lines",
+          "expected": "2",
+          "shown": "CHR-ERG-OI, MAT-DESK-02",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) line CHR-ERG-01 Name",
+          "expected": "Ergonomic Desk Chair",
+          "shown": "Ergonomic De...",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) line CHR-ERG-01 Qty.",
+          "expected": "2",
+          "shown": "2.00",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) line CHR-ERG-01 U.Price",
+          "expected": "250.00",
+          "shown": "S250.oo",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) line MAT-DESK-02 Name",
+          "expected": "Anti-Fatigue Desk Mat",
+          "shown": "Anti-Fatigue D...",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) line MAT-DESK-02 Qty.",
+          "expected": "3",
+          "shown": "3.00",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) line MAT-DESK-02 U.Price",
+          "expected": "40.00",
+          "shown": "S40.oo",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) Total Net",
+          "expected": "570.00",
+          "shown": "$570.00",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) VAT",
+          "expected": "108.30",
+          "shown": "$108.30",
+          "ok": true
+        },
+        {
+          "what": "invoice (copied) Total",
+          "expected": "678.30",
+          "shown": "$678.30",
+          "ok": true
+        },
+        {
+          "what": "invoice payment method",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "invoice paid",
+          "expected": "ticked",
+          "shown": "ticked",
+          "ok": true
+        },
+        {
+          "what": "invoice payment date",
+          "expected": "2026-07-18",
+          "shown": "Jul 18, 2026",
+          "ok": true
+        },
+        {
+          "what": "invoice paid Value = invoice Total",
+          "expected": "678.30",
+          "shown": "$678.30",
+          "ok": true
+        },
+        {
+          "what": "invoice number (proposed, unchanged)",
+          "expected": "INV000001",
+          "shown": "INV000001",
+          "ok": true
+        },
+        {
+          "what": "invoice date (proposed, unchanged)",
+          "expected": "Nov 3, 2026",
+          "shown": "Nov 3, 2026",
+          "ok": true
+        },
+        {
+          "what": "invoice service_date (proposed, unchanged)",
+          "expected": "Nov 3, 2026",
+          "shown": "Nov 3, 2026",
+          "ok": true
+        },
+        {
+          "what": "invoice saved",
+          "expected": "INV000001",
+          "shown": "INV000001",
+          "ok": true
+        },
+        {
+          "what": "stored invoice payment method",
+          "expected": "Bank Transfer",
+          "shown": "Bank Transfer",
+          "ok": true
+        },
+        {
+          "what": "stored invoice paid",
+          "expected": "ticked",
+          "shown": "ticked",
+          "ok": true
+        },
+        {
+          "what": "stored invoice payment date",
+          "expected": "2026-07-18",
+          "shown": "Jul 18, 2026",
+          "ok": true
+        },
+        {
+          "what": "stored invoice paid Value = invoice Total",
+          "expected": "678.30",
+          "shown": "$678.30",
+          "ok": true
+        },
+        {
+          "what": "Invoice in Documents: number",
+          "expected": "INV000001",
+          "shown": "INVOOOOOI",
+          "ok": true
+        },
+        {
+          "what": "Invoice in Documents: Date",
+          "expected": "2026-11-03",
+          "shown": "Nov 3, 2026",
+          "ok": true
+        },
+        {
+          "what": "Invoice in Documents: Cust.Ref.",
+          "expected": "WEB-2026-0714-A17",
+          "shown": "WEB-2026...",
+          "ok": true
+        },
+        {
+          "what": "Invoice in Documents: State",
+          "expected": "paid",
+          "shown": "paid",
+          "ok": true
+        },
+        {
+          "what": "Invoice in Documents: Total",
+          "expected": "678.30",
+          "shown": "'\"78.30', re-read '$678.30'",
+          "ok": true
+        },
+        {
+          "what": "Order (still open) in Documents: number",
+          "expected": "PO000001",
+          "shown": "POOOOOOI",
+          "ok": true
+        },
+        {
+          "what": "Order (still open) in Documents: Date",
+          "expected": "2026-07-14",
+          "shown": "Jul 14, 2026",
+          "ok": true
+        },
+        {
+          "what": "Order (still open) in Documents: Cust.Ref.",
+          "expected": "WEB-2026-0714-A17",
+          "shown": "WEB-2026...",
+          "ok": true
+        },
+        {
+          "what": "Order (still open) in Documents: State",
+          "expected": "open",
+          "shown": "open",
+          "ok": true
+        },
+        {
+          "what": "Order (still open) in Documents: Total",
+          "expected": "678.30",
+          "shown": "'\"78.30', re-read '$678.30'",
+          "ok": true
+        }
+      ],
+      "notes": [
+        "invoice INV000001 saved as 'INV000001'; flow ends here (task 5.7)"
+      ]
+    }
+  ],
+  "stopped": null,
+  "not_built": [],
+  "open_editors": [
+    "PO000001",
+    "Bank Transfer",
+    "Northstar Office GmbH, Marta Klein",
+    "Ergonomic Desk Chair",
+    "Anti-Fatigue Desk Mat",
+    "INV000001"
+  ],
+  "screenshots": [
+    {
+      "file": "screenshots/01_start.png",
+      "label": "start"
+    },
+    {
+      "file": "screenshots/02_stage1_passed.png",
+      "label": "stage1_passed"
+    },
+    {
+      "file": "screenshots/03_stage2_passed.png",
+      "label": "stage2_passed"
+    },
+    {
+      "file": "screenshots/04_stage3_passed.png",
+      "label": "stage3_passed"
+    },
+    {
+      "file": "screenshots/05_stage4_passed.png",
+      "label": "stage4_passed"
+    },
+    {
+      "file": "screenshots/06_stage5_passed.png",
+      "label": "stage5_passed"
+    }
+  ]
+}

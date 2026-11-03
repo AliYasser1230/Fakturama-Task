@@ -1,8 +1,9 @@
 import pytest
 
 from image_to_cash.extract.schema import Address, Debtor, Item
-from image_to_cash.flow.matching import CREATE, REVIEW, SELECT, address_parts, decide_debtor, decide_product, text_contains
-from tests.fakes import ADDRESS_COLUMNS, PRODUCT_COLUMNS, grid
+from image_to_cash.flow.matching import (CREATE, REVIEW, SELECT, address_parts, decide_debtor, decide_product,
+                                         decide_vat, text_contains)
+from tests.fakes import ADDRESS_COLUMNS, PRODUCT_COLUMNS, VAT_COLUMNS, grid
 
 DEBTOR = Debtor(company="Northstar Office GmbH", first_name="Marta", last_name="Klein")
 BILLING = Address(name="Northstar Office GmbH", street="Friedrichstrasse 88", zip="10117", city="Berlin", country="Germany")
@@ -84,3 +85,17 @@ def test_address_parts_and_contains():
     shown = "Northstar Office GmbH\nMarta Klein\nFriedrichstrasse 88\nDE-10117 Berlin\nGermany"
     assert all(text_contains(shown, v) for v in parts.values())
     assert not text_contains(shown, "Beusselstrasse 44")
+
+
+TAX_FREE = ("", "Tax-free", "Free of Tax", "0.00 %")
+
+
+@pytest.mark.parametrize("rows, action", [
+    ((TAX_FREE,), CREATE),
+    ((TAX_FREE, ("", "VAT 19%", "VAT 19%", "19.00 %")), SELECT),
+    ((TAX_FREE, ("", "VAT 19%", "VAT 19%", "19.00 96")), SELECT),
+    ((TAX_FREE, ("", "VAT 19%", "VAT 19%", "16.00 %")), REVIEW),
+    ((("", "VAT 19%", "VAT 19%", "19.00 %"), ("", "VAT 19%", "old", "19.00 %")), REVIEW),
+])
+def test_vat_is_reused_only_with_the_same_value_and_conflicts_need_review(rows, action):
+    assert decide_vat(grid(VAT_COLUMNS, *rows), "VAT 19%", "19").action == action

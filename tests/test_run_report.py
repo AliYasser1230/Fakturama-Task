@@ -52,7 +52,7 @@ def test_completed_run_writes_report_order_and_screenshots_but_no_review(tmp_pat
     assert (folder / "order.json").is_file() and not (folder / "manual_review.json").exists()
     md = (folder / "report.md").read_text(encoding="utf-8")
     assert "- Outcome: **completed**" in md and "Stage 5 - Complete and verify the linked Invoice: passed" in md
-    assert "Open editors left in Fakturama: PO000001, INV000001" in md
+    assert "Open editors left in Fakturama: PO000001; INV000001" in md
 
 
 def test_manual_review_stop_writes_what_a_person_needs(tmp_path, order):
