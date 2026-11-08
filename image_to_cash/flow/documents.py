@@ -16,6 +16,7 @@ def document_row(app, document: str) -> GridRow:
     app.click("main", "menu_data")
     app.click_when("data_menu", "documents")
     app.wait_open(DOCS)
+    app.click(DOCS, "all_documents")
     grid = app.search_table(DOCS, document)
     rows = [r for r in (grid.rows if grid else []) if cell_matches(r.cells.get("Document", ""), document)]
     if len(rows) != 1:

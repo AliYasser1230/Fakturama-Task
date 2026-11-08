@@ -29,7 +29,8 @@ the Order and completes the linked, paid Invoice. Nobody touches Fakturama durin
 205 checks, none failed, in about 3 minutes. The run's own report is in
 [`docs/demo/run_report/report.md`](docs/demo/run_report/report.md). On a workspace that
 already has the contact, payment method, VAT and products, the same image takes the
-selection branches instead (101 checks, about 90 seconds).
+selection branches instead (101 checks, about 90 seconds). That run also completed with
+real Claude reading the image (`python main.py run order.png`, no `--raw`).
 
 The video starts when the run starts and ends 5 seconds after it finishes. Two frames
 (0.4 s) where a console window from a status check I ran on the host covered the screen
@@ -299,10 +300,11 @@ python main.py extract samples/order_WEB-2026-0714-A17.png --out order.json --sa
 python main.py extract samples/order_WEB-2026-0714-A17.png --raw samples/order_WEB-2026-0714-A17.raw.json
 ```
 
-No API key was available while this was built, so every live run used the saved,
-hand-checked transcription (`--raw`). It goes through the same OCR cross-check,
-normalization and arithmetic checks as Claude's output. The Claude call itself is
-tested with a fake client.
+The Claude extraction has run live on the sample (Claude Opus 5.5, about 6,800 input and
+600 output tokens): its validated order is identical to the hand-checked expected order,
+and a full `run` with it completed all five stages. The recorded demo used the saved
+transcription (`--raw`) instead; it goes through the same OCR cross-check, normalization
+and arithmetic checks as Claude's output.
 
 The validated order goes to stdout (or `--out`); warnings and a one-line summary go to
 stderr. Exit code `0` = accepted, `1` = rejected (every problem is listed, and Fakturama is
@@ -336,6 +338,11 @@ Tesseract if installed.
   drawn by Fakturama itself, so UI Automation sees no rows. The vision-LLM locator of last
   resort was not built; UIA and OCR covered every control the flow needs.
 - **No duplicate-order guard yet** (see [3 more hours](#if-i-had-3-more-hours)).
+- **Empty strings instead of nulls in the schema sent to Claude.** With 36 optional text
+  fields, the API rejected the structured-output schema ("compiled grammar is too large").
+  Claude now gets a copy of the schema in which every text field is required and an empty
+  string means "not printed"; the answer is turned back into `None` values before the
+  checks, so everything after the extraction is unchanged.
 
 ## Fakturama 2.2.0 notes (found while building the UI driver)
 
@@ -397,6 +404,9 @@ Tesseract if installed.
 - Fakturama prints the contact's company, not an address's "additional name", in the
   order's Delivery address; that line passes when it shows the delivery name or the
   company. Street, ZIP and City must match exactly.
+- Data > Documents remembers the filter chosen in its tree across restarts (for example
+  "Invoices/unpaid"), which hides a new Order. Before every search the tool selects the
+  first `---` item (all documents).
 - If Fakturama warns about a duplicate contact while one is being created, the run stops
   for manual review (nothing is saved).
 - Data > Documents is a list panel: setting its search text through UIA does not filter, so
@@ -424,8 +434,9 @@ Tesseract if installed.
   data. The other branches (an unpaid order, identical billing and delivery address,
   ambiguous or conflicting contacts, products, VATs and payment methods) are covered by
   unit tests against a simulated Fakturama, not live.
-- The Claude extraction call has not been run live (see
-  [Extracting the order data](#extracting-the-order-data)).
+- The Claude extraction has run live on the sample image only (see
+  [Extracting the order data](#extracting-the-order-data)); the recorded demo used the saved
+  transcription.
 - The same image can be booked twice: master data is reused, but a second run creates a
   second Order and Invoice.
 - English Fakturama UI and English Windows OCR; dates shown as `Jul 14, 2026`. Fakturama
@@ -443,10 +454,10 @@ In order of value:
 1. **Stop a second booking of the same image (30 min).** Before stage 1, search Data >
    Documents for the Cust.Ref. and stop for review when an Order with it exists. The
    design doc planned this; testing booked the sample twice.
-2. **Run the real Claude extraction and measure it (45 min).** With an API key, run it on
-   the sample and on 5–10 variants (photo, skew, low resolution, a second VAT rate, an
-   unpaid order, a SEPA payment). Record which check catches which error, and add the
-   variants as test fixtures.
+2. **Measure the Claude extraction on more images (45 min).** It has run live on the
+   sample with the same result as the hand-checked transcription. Run it on 5–10 variants
+   (photo, skew, low resolution, a second VAT rate, an unpaid order, a SEPA payment), record
+   which check catches which error, and add the variants as test fixtures.
 3. **Run the remaining branches live (60 min).** The unpaid path, one address with both
    roles, a near-duplicate contact (Fakturama's duplicate warning already stops the run),
    and a VAT or product that exists with conflicting values. Record each as a live test.
@@ -462,7 +473,7 @@ In order of value:
 | # | Step | Status |
 |---|---|---|
 | 1 | Repo structure, dependencies, sample image | done |
-| 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done (Claude call tested with a fake client; first live call needs an API key) |
+| 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done; the Claude call ran live on the sample with the same result as the hand-checked transcription |
 | 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
 | 4 | UI helpers and `locators.yaml` | done: locators and finder, connect and waits, actions with read-back, table OCR; 5 live tests pass. Editing item-line cells moves to step 6 (needs a product line) |
 | 5 | Stage 1: open New Order | done: `main.py run` runs it from the image or JSON; live-tested |

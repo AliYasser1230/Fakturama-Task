@@ -71,6 +71,9 @@ def test_full_run_on_an_empty_fakturama_ends_with_a_saved_paid_invoice(order):
     assert app.documents[0][:5] == ("PO000001", "Jul 14, 2026", "Northstar Office GmbH", "WEB-2026-0714-A17", "open")
     assert app.documents[1][4] == "paid" and app.documents[1][5] == "$678.30"
     assert app.values[("invoice_editor", "paid_date")] == "Jul 18, 2026"
+    searches = [i for i, call in enumerate(app.calls) if call[:2] == ("search", "documents_list")]
+    resets = [i for i, call in enumerate(app.calls) if call == ("click", "documents_list", "all_documents")]
+    assert searches and len(resets) == len(searches) and all(r < s for r, s in zip(resets, searches))
     invoice = result.completed[-1]
     assert "Invoice in Documents: State" in [c.what for c in invoice.checks]
     assert "Order (still open) in Documents: State" in [c.what for c in invoice.checks]

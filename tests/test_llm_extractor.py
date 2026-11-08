@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -39,7 +40,7 @@ def test_request_shape(raw, sample_image):
     assert result.usage == {"input_tokens": 1500, "output_tokens": 900}
     call = client.calls[0]
     assert call["model"] == "claude-opus-5-5"
-    assert call["output_format"] is RawExtraction
+    assert call["output_format"] is llm_extractor.wire_model(RawExtraction)
     assert call["output_config"] == {"effort": "medium"}
     assert call["fallbacks"] == "default" and call["betas"] == ["server-side-fallback-2026-07-01"]
     assert "temperature" not in call
@@ -63,12 +64,44 @@ def test_unusable_responses_are_rejected(sample_image, response, message):
     assert message in str(exc.value)
 
 
-def test_schema_is_accepted_by_the_sdk_structured_output_transform():
-    from anthropic.lib._parse._transform import transform_schema
+def _sent_schema():
+    from anthropic.lib._parse._transform import to_json_output_format
 
-    schema = transform_schema(RawExtraction)
+    return to_json_output_format(llm_extractor.wire_model(RawExtraction))["schema"]
+
+
+def test_schema_is_accepted_by_the_sdk_structured_output_transform():
+    schema = _sent_schema()
     assert schema["additionalProperties"] is False
     assert set(schema["required"]) == set(RawExtraction.model_fields)
+
+
+def test_schema_sent_to_claude_has_no_optional_text_fields():
+    text = json.dumps(_sent_schema())
+    assert text.count('"anyOf"') == 1
+    assert '"delivery_address": {"anyOf"' in text
+
+
+def _blanks(value):
+    if isinstance(value, dict):
+        return {key: _blanks(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_blanks(item) for item in value]
+    return "" if value is None else value
+
+
+def test_empty_strings_from_claude_become_none(raw, sample_image):
+    wire = llm_extractor.wire_model(RawExtraction).model_validate(_blanks(raw.model_dump()))
+    assert wire.customer.salutation == ""
+    result = llm_extractor.extract_raw(sample_image, model="m", effort="medium", client=FakeClient(_response(wire)))
+    assert result.raw == raw
+    assert result.raw.customer.salutation is None
+
+
+def test_an_answer_that_does_not_fit_the_schema_is_rejected(raw, sample_image):
+    broken =SimpleNamespace(model_dump=lambda: {**_blanks(raw.model_dump()), "order": "not an object"})
+    with pytest.raises(ExtractionRejected, match="does not fit the order schema"):
+        llm_extractor.extract_raw(sample_image, model="m", effort="medium", client=FakeClient(_response(broken)))
 
 
 def test_large_or_unsupported_images_are_converted(tmp_path):

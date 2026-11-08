@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import base64
 import io
+import types
+import typing
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 
 from image_to_cash.errors import ExtractionRejected, Issue
 from image_to_cash.extract.schema import RawExtraction
@@ -17,7 +21,7 @@ structure. The values feed an accounting system, so they must match the document
 
 - Copy every value exactly as printed: same spelling, digits, punctuation, units and \
 currency codes. Do not convert formats, calculate, translate or fill in missing parts.
-- Use null for anything the document does not show.
+- Use an empty string for any text the document does not show.
 - If a value is printed but you cannot read it with confidence, still give your best \
 reading and add its path (for example "items[1].unit_net_price") to unreadable_fields.
 - items: one entry per printed item row, in printed order. Skip empty table rows.
@@ -35,6 +39,35 @@ _MAX_RAW_BYTES = 3_750_000
 _MAX_EDGE_WHEN_SHRINKING = 2400
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+
+@cache
+def wire_model(model: type[BaseModel]) -> type[BaseModel]:
+    fields = {name: (wire_type(info.annotation), Field(description=info.description))
+              for name, info in model.model_fields.items()}
+    return create_model(model.__name__, __config__=ConfigDict(extra="forbid"), **fields)
+
+
+def wire_type(annotation: Any) -> Any:
+    args = typing.get_args(annotation)
+    if typing.get_origin(annotation) in (types.UnionType, typing.Union) and type(None) in args:
+        inner = next(a for a in args if a is not type(None))
+        return str if inner is str else wire_type(inner) | None
+    if typing.get_origin(annotation) is list:
+        return list[wire_type(args[0])]
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return wire_model(annotation)
+    return annotation
+
+
+def blanks_to_none(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: blanks_to_none(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [blanks_to_none(item) for item in value if not (isinstance(item, str) and not item.strip())]
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
 
 
 @dataclass
@@ -86,7 +119,7 @@ def extract_raw(
         betas=[FALLBACK_BETA],
         fallbacks="default",
         output_config={"effort": effort},
-        output_format=RawExtraction,
+        output_format=wire_model(RawExtraction),
         system=SYSTEM_PROMPT,
         messages=[
             {
@@ -105,9 +138,12 @@ def extract_raw(
         raise _reject(f"Claude declined to read the image (category: {category or 'unspecified'})")
     if response.stop_reason == "max_tokens":
         raise _reject("Claude's answer was cut off (max_tokens); the transcription is incomplete")
-    raw = response.parsed_output
-    if raw is None:
+    if response.parsed_output is None:
         raise _reject(f"Claude returned no structured output (stop_reason: {response.stop_reason})")
+    try:
+        raw = RawExtraction.model_validate(blanks_to_none(response.parsed_output.model_dump()))
+    except ValidationError as exc:
+        raise _reject(f"Claude's answer does not fit the order schema: {exc}") from None
 
     usage = getattr(response, "usage", None)
     return LlmExtraction(
