@@ -96,7 +96,7 @@ def select_debtor(ctx: RunContext) -> StageResult:
     shown_id = again.row.cells.get("No.", "") if again.row is not None else AUTO_SELECTED
     reselected = [Check("new contact saved", customer_id, saved, True),
                   Check("new contact reselected in the order", customer_id, shown_id,
-                        again.row is None or cell_matches(shown_id, customer_id))]
+                        again.row is None or cell_matches(shown_id, customer_id) is not None)]
     return gate(*STAGE, payment + filled + reselected + address_checks(app, order), notes=[
         decision.reason, f"created contact {customer_id} (saved as {saved!r}) and selected it in the order",
         "payment method resolved before New Contact: Fakturama 2.2.0 fills the contact's Payment "

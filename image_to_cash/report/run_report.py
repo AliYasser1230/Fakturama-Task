@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from image_to_cash.extract.schema import OrderData
 from image_to_cash.flow.runner import Check, RunResult, Stage, StageResult, format_run
+from image_to_cash.report.html_report import render_html
 
 REVIEW_KINDS = {"manual review", "check failed", "stopped", "error"}
 NEXT_STEP = {
@@ -91,7 +92,7 @@ class RunReport:
         self.capture(f"stage{stage.number}_{status}")
 
     def finish(self, result: RunResult, *, fakturama: dict[str, Any] | None = None,
-               open_editors: list[str] | None = None) -> Path:
+               open_editors: list[str] | None = None, documents: dict[str, str | None] | None = None) -> Path:
         stages = [stage_dict(r, "passed") for r in result.completed]
         stopped = None
         if result.stopped_at is not None:
@@ -109,6 +110,7 @@ class RunReport:
             "order": order_summary(self.order),
             "extraction": self.extraction,
             "fakturama": fakturama or {},
+            "documents": documents or {},
             "stages": stages,
             "stopped": stopped,
             "not_built": [f"{s.number} {s.title}" for s in result.not_built],
@@ -119,6 +121,8 @@ class RunReport:
             report["trace"] = result.trace
         self._write("report.json", json.dumps(report, indent=2, ensure_ascii=False))
         self._write("report.md", "\n".join(self.markdown(result, report)) + "\n")
+        next_step = NEXT_STEP.get(result.kind) if result.stopped_at is not None else None
+        self._write("report.html", render_html(report, f"Run {self.folder.name}", next_step))
         if result.stopped_at is not None and result.kind in REVIEW_KINDS:
             self._write("manual_review.json", json.dumps(self.review(result, report), indent=2, ensure_ascii=False))
         return self.folder
