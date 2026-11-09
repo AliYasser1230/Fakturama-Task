@@ -72,7 +72,7 @@ def test_full_run_on_an_empty_fakturama_ends_with_a_saved_paid_invoice(order):
     assert app.documents[1][4] == "paid" and app.documents[1][5] == "$678.30"
     assert app.values[("invoice_editor", "paid_date")] == "Jul 18, 2026"
     searches = [(i, call[2]) for i, call in enumerate(app.calls) if call[:2] == ("search", "documents_list")]
-    assert [text for _, text in searches] == ["PO000001", "INV000001", "PO000001"]
+    assert [text for _, text in searches] == ["PO000001", "PO000001", "INV000001"]
     for i, text in searches:
         last_click = next(c for c in reversed(app.calls[:i]) if c[:2] == ("click", "documents_list"))
         assert last_click[2] == ("orders" if text.startswith("PO") else "invoices")
