@@ -405,8 +405,10 @@ Tesseract if installed.
   order's Delivery address; that line passes when it shows the delivery name or the
   company. Street, ZIP and City must match exactly.
 - Data > Documents remembers the filter chosen in its tree across restarts (for example
-  "Invoices/unpaid"), which hides a new Order. Before every search the tool selects the
-  first `---` item (all documents).
+  "Invoices/unpaid"), which hides a new Order, and after a document is opened from the list
+  its first items show "This transaction" and the contact instead of `---`. Before every
+  search the tool selects the Orders or Invoices item, which lists every document of that
+  kind in both cases.
 - If Fakturama warns about a duplicate contact while one is being created, the run stops
   for manual review (nothing is saved).
 - Data > Documents is a list panel: setting its search text through UIA does not filter, so

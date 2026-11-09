@@ -12,11 +12,11 @@ from image_to_cash.ui.grid_ocr import GridRow, cell_matches
 DOCS = "documents_list"
 
 
-def document_row(app, document: str) -> GridRow:
+def document_row(app, document: str, kind: str) -> GridRow:
     app.click("main", "menu_data")
     app.click_when("data_menu", "documents")
     app.wait_open(DOCS)
-    app.click(DOCS, "all_documents")
+    app.click_when(DOCS, kind)
     grid = app.search_table(DOCS, document)
     rows = [r for r in (grid.rows if grid else []) if cell_matches(r.cells.get("Document", ""), document)]
     if len(rows) != 1:

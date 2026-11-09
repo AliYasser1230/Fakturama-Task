@@ -9,7 +9,8 @@ from image_to_cash.ui.finder import DictNode, locate, resolve, scope_root
 from image_to_cash.ui.locators import Locator, Scope, load_locators
 
 FIXTURES = Path(__file__).parent / "fixtures" / "uia"
-SEEN_ONLY_WITH_DATA = {"invoice_editor.delivery_address", "order_editor.delivery_address"}
+SEEN_ONLY_WITH_DATA = {"invoice_editor.delivery_address", "order_editor.delivery_address",
+                       "documents_list.invoices"}
 
 
 def _recording(stem: str) -> DictNode:

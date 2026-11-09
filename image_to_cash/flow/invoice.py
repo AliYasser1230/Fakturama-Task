@@ -75,10 +75,10 @@ def complete_invoice(ctx: RunContext) -> StageResult:
 
     invoice_date = parse_display_date(proposed["date"])
     state = "paid" if order.payment.is_paid else "open"
-    checks += document_checks(app, document_row(app, ctx.invoice_number), label="Invoice",
+    checks += document_checks(app, document_row(app, ctx.invoice_number, "invoices"), label="Invoice",
                               document=ctx.invoice_number, when=invoice_date, cust_ref=order.external_reference,
                               state=state, total=order.totals.gross)
-    checks += document_checks(app, document_row(app, ctx.order_number), label="Order (still open)",
+    checks += document_checks(app, document_row(app, ctx.order_number, "orders"), label="Order (still open)",
                               document=ctx.order_number, when=order.order_date, cust_ref=order.external_reference,
                               state="open", total=order.totals.gross)
     return gate(*STAGE, checks, notes=[f"invoice {ctx.invoice_number} saved as {saved!r}; flow ends here (task 5.7)"])

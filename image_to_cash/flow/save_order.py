@@ -40,7 +40,7 @@ def save_order(ctx: RunContext) -> StageResult:
     saved = app.save(EDITOR)
     ctx.order_title = saved
     checks.append(Check("order saved", ctx.order_number or "", saved, True))
-    row = document_row(app, ctx.order_number)
+    row = document_row(app, ctx.order_number, "orders")
     checks += document_checks(app, row, label="Order", document=ctx.order_number, when=order.order_date,
                               cust_ref=order.external_reference, state="open", total=order.totals.gross)
     gate(*STAGE, checks)

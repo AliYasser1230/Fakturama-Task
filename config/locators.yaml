@@ -180,7 +180,8 @@ documents_list:
     search: {type: Edit, after: {name: "Search:"}}
     delete: {type: Button, name: Delete the marked entry}
     table: {type: Grid, columns: [Document, Date, Name, Cust.Ref., State, Total, Printed]}
-    all_documents: {type: TreeItem, name: "---", index: 1}
+    orders: {type: TreeItem, name: Orders}
+    invoices: {type: TreeItem, name: Invoices}
 
 invoice_editor:
   scope: {tab: '\*?New Invoice'}
