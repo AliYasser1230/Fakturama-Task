@@ -1,5 +1,3 @@
-param([switch]$SkipDiscovery)
-
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
@@ -14,7 +12,7 @@ function Find-Python311 {
     return $null
 }
 
-Step "1/4 Python 3.11 (64-bit x64)"
+Step "1/3 Python 3.11 (64-bit x64)"
 $python = Find-Python311
 if (-not $python) {
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -32,7 +30,7 @@ if ($platform -ne "win-amd64") {
 }
 Write-Host "Using $python ($platform)"
 
-Step "2/4 Virtual environment and dependencies"
+Step "2/3 Virtual environment and dependencies"
 $venvPython = Join-Path (Get-Location) ".venv\Scripts\python.exe"
 if (-not (Test-Path $venvPython)) {
     & $python -m venv .venv
@@ -69,7 +67,7 @@ if (-not (Test-Win32ui)) {
     }
 }
 
-Step "3/4 Tests"
+Step "3/3 Tests"
 & $venvPython -m pytest -q
 if ($LASTEXITCODE -ne 0) {
     Write-Host "If the OCR test says the language is missing, run this in an administrator PowerShell:" -ForegroundColor Yellow
@@ -77,20 +75,4 @@ if ($LASTEXITCODE -ne 0) {
     Fail "Some tests failed. Send the output above."
 }
 
-if ($SkipDiscovery) {
-    Write-Host "`nSetup done. Run this script again without -SkipDiscovery to record Fakturama's controls." -ForegroundColor Green
-    exit 0
-}
-
-Step "4/4 Discovery of Fakturama's controls"
-function Test-Fakturama {
-    $found = Get-Process | Where-Object { $_.MainWindowTitle -like "*Fakturama*" -and $_.ProcessName -match "^(Fakturama|javaw?)$" }
-    return $null -ne $found
-}
-while (-not (Test-Fakturama)) {
-    $answer = Read-Host "Start Fakturama and wait for its main window, then press Enter (type 'go' to continue anyway)"
-    if ($answer -eq "go") { break }
-}
-& $venvPython main.py discover
-if ($LASTEXITCODE -ne 0) { Fail "Discovery stopped with an error. Send the output above." }
-Write-Host "`nAll done. Send the .zip file named above." -ForegroundColor Green
+Write-Host "`nSetup done. Start Fakturama, then run: .venv\Scripts\python main.py run samples\order_WEB-2026-0714-A17.png" -ForegroundColor Green

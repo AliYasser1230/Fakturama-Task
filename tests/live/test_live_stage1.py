@@ -24,11 +24,11 @@ def app():
 
 
 def test_stage1_opens_the_order_for_the_sample(app, sample_expected_path):
-    from image_to_cash.extract.pipeline import load_order_json
+    from image_to_cash.extract.schema import OrderData
     from image_to_cash.flow.order import open_order
     from image_to_cash.flow.runner import RunContext
 
-    order = load_order_json(sample_expected_path, settings=app.settings)
+    order = OrderData.model_validate_json(sample_expected_path.read_text(encoding="utf-8"))
     ctx = RunContext(order=order, app=app, settings=app.settings)
     result = open_order(ctx)
     assert result.ok, [str(c) for c in result.checks]

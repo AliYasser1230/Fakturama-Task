@@ -31,14 +31,14 @@ def app():
 
 def test_unknown_contact_and_product_are_cancelled(app, sample_expected_path):
     from image_to_cash.errors import NotBuiltYet
-    from image_to_cash.extract.pipeline import load_order_json
+    from image_to_cash.extract.schema import OrderData
     from image_to_cash.flow.debtor import cancel, search_debtor
     from image_to_cash.flow.matching import CREATE
     from image_to_cash.flow.order import open_order
     from image_to_cash.flow.products import select_product
     from image_to_cash.flow.runner import RunContext
 
-    order = load_order_json(sample_expected_path, settings=app.settings)
+    order = OrderData.model_validate_json(sample_expected_path.read_text(encoding="utf-8"))
     order = order.model_copy(update={
         "debtor": order.debtor.model_copy(update={"company": UNKNOWN_COMPANY}),
         "items": [order.items[0].model_copy(update={"sku": UNKNOWN_SKU})],

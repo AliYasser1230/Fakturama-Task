@@ -1,4 +1,6 @@
+import argparse
 import json
+import sys
 from decimal import Decimal
 
 import pytest
@@ -6,7 +8,7 @@ import pytest
 import main
 from image_to_cash.errors import ExtractionRejected
 from image_to_cash.extract import pipeline
-from image_to_cash.ocr import Box, OcrLine, OcrResult, OcrWord, available_engine
+from image_to_cash.ocr import Box, OcrLine, OcrResult, OcrUnavailable, OcrWord
 from image_to_cash.settings import Settings
 
 SETTINGS = Settings()
@@ -43,50 +45,57 @@ def test_pipeline_reports_normalize_and_validate_errors_together(monkeypatch, ra
     assert fields == {"items[0]", "totals.net", "totals.vat"}
 
 
-def test_skipping_ocr_is_a_visible_warning(raw, sample_image):
-    result = pipeline.extract_order(sample_image, settings=SETTINGS, raw=raw, ocr_check=False)
-    assert any(i.field == "ocr" and i.level == "warning" for i in result.issues)
+def test_no_ocr_engine_rejects_the_order(monkeypatch, raw, sample_image):
+    def no_ocr(image, **kwargs):
+        raise OcrUnavailable("Windows OCR is not available on this machine")
+
+    monkeypatch.setattr(pipeline, "run_ocr", no_ocr)
+    with pytest.raises(ExtractionRejected) as exc:
+        pipeline.extract_order(sample_image, settings=SETTINGS, raw=raw)
+    assert [i.field for i in exc.value.issues] == ["ocr"]
 
 
-def test_load_order_json_revalidates(tmp_path, sample_expected_path):
-    assert pipeline.load_order_json(sample_expected_path, settings=SETTINGS).items[0].sku == "CHR-ERG-01"
-    data = json.loads(sample_expected_path.read_text())
-    data["totals"]["gross"] = "700.00"
-    edited = tmp_path / "edited.json"
-    edited.write_text(json.dumps(data))
-    with pytest.raises(ExtractionRejected):
-        pipeline.load_order_json(edited, settings=SETTINGS)
-
-
-@pytest.mark.skipif(available_engine() is None, reason="no OCR engine on this machine")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows OCR runs on Windows only")
 def test_real_ocr_on_the_sample_image(raw, sample_image):
     result = pipeline.extract_order(sample_image, settings=SETTINGS, raw=raw)
-    assert result.ocr_engine in {"macos", "windows", "tesseract"}
+    assert result.ocr_engine == "windows"
     assert all(i.level == "warning" and i.field.endswith((".discount", ".vat")) for i in result.issues)
 
 
-def test_cli_extract_writes_order_json(tmp_path, capsys, sample_image, sample_raw_path, sample_expected_path):
-    out = tmp_path / "order.json"
-    code = main.main(["extract", str(sample_image), "--raw", str(sample_raw_path), "--no-ocr-check", "--out", str(out)])
-    assert code == 0
-    assert json.loads(out.read_text()) == json.loads(sample_expected_path.read_text())
-    assert "OK: WEB-2026-0714-A17" in capsys.readouterr().err
+def _args(image, raw=None):
+    return argparse.Namespace(image=str(image), raw=str(raw) if raw else None)
 
 
-def test_cli_extract_without_api_key_explains_instead_of_crashing(monkeypatch, capsys, sample_image):
+def test_run_command_takes_the_image_and_an_optional_raw_file():
+    args = main.build_parser().parse_args(["run", "order.png", "--raw", "order.raw.json"])
+    assert (args.image, args.raw, args.func) == ("order.png", "order.raw.json", main.cmd_run)
+    assert main.build_parser().parse_args(["run", "order.png"]).raw is None
+    with pytest.raises(SystemExit):
+        main.build_parser().parse_args(["run"])
+
+
+def test_load_order_with_raw_gives_the_expected_order(monkeypatch, sample_image, sample_raw_path,
+                                                      sample_expected_path, sample_ocr_text):
+    monkeypatch.setattr(pipeline, "run_ocr", _fake_ocr(sample_ocr_text))
+    order, issues, info = main._load_order(_args(sample_image, sample_raw_path), SETTINGS)
+    assert json.loads(order.model_dump_json()) == json.loads(sample_expected_path.read_text())
+    assert issues == [] and info["source"] == "raw-json" and info["ocr_engine"] == "fake"
+
+
+def test_load_order_without_api_key_explains_instead_of_crashing(monkeypatch, capsys, sample_image):
     def no_credentials(*args, **kwargs):
         raise TypeError('"Could not resolve authentication method. Expected one of api_key, auth_token, ..."')
 
     monkeypatch.setattr(pipeline, "extract_raw", no_credentials)
-    assert main.main(["extract", str(sample_image), "--no-ocr-check"]) == 1
+    assert main._load_order(_args(sample_image), SETTINGS) == (None, [], {})
     err = capsys.readouterr().err
     assert "No Claude API key found" in err and "--raw" in err
 
 
-def test_cli_extract_rejected_exit_code(tmp_path, capsys, sample_image, raw):
+def test_load_order_rejects_a_wrong_total(monkeypatch, tmp_path, capsys, sample_image, raw, sample_ocr_text):
+    monkeypatch.setattr(pipeline, "run_ocr", _fake_ocr(sample_ocr_text))
     raw.totals.gross_total = "EUR 999.00"
     bad = tmp_path / "bad.raw.json"
     bad.write_text(raw.model_dump_json())
-    code = main.main(["extract", str(sample_image), "--raw", str(bad), "--no-ocr-check"])
-    assert code == 1
+    assert main._load_order(_args(sample_image, bad), SETTINGS) == (None, [], {})
     assert "REJECTED" in capsys.readouterr().err

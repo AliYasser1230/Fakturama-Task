@@ -106,7 +106,7 @@ templates for buttons (break with themes, DPI and language).
 
 ## 8. As built
 
-Python 3.11, pywinauto, Windows OCR (Apple Vision for development on macOS), pydantic,
+Python 3.11, pywinauto, Windows OCR, pydantic,
 PyYAML; modules `extract/`, `ui/`, `flow/`, `report/`. The whole flow is built and was
 recorded live from an empty Fakturama 2.2.0 workspace: 205 checks, none failed, about
 3 minutes.

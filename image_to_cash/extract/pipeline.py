@@ -23,21 +23,12 @@ class ExtractionResult:
     ocr_engine: str | None = None
     llm_usage: dict[str, Any] = field(default_factory=dict)
 
-    def summary(self) -> dict[str, Any]:
-        return {
-            "source": self.source,
-            "ocr_engine": self.ocr_engine,
-            "llm_usage": self.llm_usage,
-            "warnings": [i.to_dict() for i in self.issues],
-        }
-
 
 def extract_order(
     image_path: str | Path,
     *,
     settings: Settings,
     raw: RawExtraction | None = None,
-    ocr_check: bool = True,
     client: Any = None,
 ) -> ExtractionResult:
     issues: list[Issue] = []
@@ -50,16 +41,11 @@ def extract_order(
     else:
         source = "raw-json"
 
-    ocr_engine = None
-    if ocr_check:
-        try:
-            ocr = run_ocr(image_path, lang=settings.ocr_language)
-        except OcrUnavailable as exc:
-            raise ExtractionRejected([Issue("error", "ocr", f"{exc}. Use --no-ocr-check to skip at your own risk.")])
-        ocr_engine = ocr.engine
-        issues += crosscheck(raw, ocr.text)
-    else:
-        issues.append(Issue("warning", "ocr", "OCR cross-check skipped (--no-ocr-check)"))
+    try:
+        ocr = run_ocr(image_path, lang=settings.ocr_language)
+    except OcrUnavailable as exc:
+        raise ExtractionRejected([Issue("error", "ocr", str(exc))])
+    issues += crosscheck(raw, ocr.text)
 
     order, norm_issues = normalize(raw)
     issues += norm_issues
@@ -70,16 +56,9 @@ def extract_order(
         raise ExtractionRejected(issues)
 
     return ExtractionResult(order=order, raw=raw, issues=issues, source=source,
-                            ocr_engine=ocr_engine, llm_usage=usage)
+                            ocr_engine=ocr.engine, llm_usage=usage)
 
 
 def load_raw_json(path: str | Path) -> RawExtraction:
     return RawExtraction.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
-
-def load_order_json(path: str | Path, *, settings: Settings) -> OrderData:
-    order = OrderData.model_validate_json(Path(path).read_text(encoding="utf-8"))
-    issues = validate(order, expected_currency=settings.expected_currency)
-    if any(i.level == "error" for i in issues):
-        raise ExtractionRejected(issues)
-    return order

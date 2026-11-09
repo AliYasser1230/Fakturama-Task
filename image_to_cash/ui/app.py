@@ -5,14 +5,13 @@ import re
 import subprocess
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from image_to_cash.errors import ControlNotFound, FlowStopped, ManualReviewRequired, VerificationFailed
 from image_to_cash.settings import Settings
 from image_to_cash.ui import actions
-from image_to_cash.ui.finder import Node, UiaNode, locate, preorder, resolve, scope_root
+from image_to_cash.ui.finder import UiaNode, locate, preorder, scope_root
 from image_to_cash.ui.locators import Locators, Scope, load_locators
 from image_to_cash.ui.grid_ocr import (Grid, GridRow, capture_words, cell_span, cell_word, click_row, line_row,
                                        match_headers, ocr_words, read_cell_image, read_grid, row_at,
@@ -20,10 +19,19 @@ from image_to_cash.ui.grid_ocr import (Grid, GridRow, capture_words, cell_span, 
 from image_to_cash.ui.waits import wait_stable, wait_until
 
 
+def pick_fakturama_window(windows: list[tuple[str, str, Any]]) -> Any:
+    candidates = [
+        (title, w) for title, cls, w in windows
+        if (cls or "").startswith("SWT_Window") and (title or "").startswith("Fakturama")
+    ]
+    main = [w for title, w in candidates if title.startswith("Fakturama - ")]
+    if main:
+        return main[0]
+    return candidates[0][1] if candidates else None
+
+
 def find_main_window() -> Any | None:
     from pywinauto import Desktop
-
-    from image_to_cash.ui.discover import pick_fakturama_window
 
     own_pid = os.getpid()
     windows = [
@@ -44,49 +52,6 @@ def find_ready_main_window() -> Any | None:
 
 
 START_PAGE = "Fakturama"
-
-
-@dataclass(frozen=True)
-class ProbeResult:
-    screen: str
-    control: str
-    found: bool
-    detail: str
-
-
-def probe_tree(main: Node, locators: Locators, screens: list[str] | None = None) -> list[ProbeResult]:
-    results = []
-    for screen_name, screen in locators.screens.items():
-        if screens and screen_name not in screens:
-            continue
-        try:
-            root = scope_root(main, screen.scope)
-        except ControlNotFound:
-            continue
-        for control_name, loc in screen.controls.items():
-            try:
-                node = resolve(root, loc)
-            except ControlNotFound as exc:
-                results.append(ProbeResult(screen_name, control_name, False, str(exc)))
-                continue
-            value = getattr(node, "value", None)
-            detail = f"{node.control_type} {node.name!r} at {node.rect}"
-            if value not in (None, ""):
-                detail += f" value={value!r}"
-            results.append(ProbeResult(screen_name, control_name, True, detail))
-    return results
-
-
-def format_probe(results: list[ProbeResult]) -> list[str]:
-    lines, current = [], None
-    for r in results:
-        if r.screen != current:
-            current = r.screen
-            found = sum(1 for x in results if x.screen == current and x.found)
-            total = sum(1 for x in results if x.screen == current)
-            lines.append(f"{current}: {found}/{total} found")
-        lines.append(f"  {'ok ' if r.found else '-- '} {r.control:22s} {r.detail}")
-    return lines
 
 
 class Fakturama:
@@ -204,9 +169,6 @@ class Fakturama:
     def maximize(self) -> None:
         if not self.window.is_maximized():
             self.window.maximize()
-
-    def probe(self, screens: list[str] | None = None) -> list[ProbeResult]:
-        return probe_tree(self.root(), self.locators, screens)
 
     def read(self, screen: str, control: str, title: str | None = None) -> str:
         return actions.read_value(self.find(screen, control, title))

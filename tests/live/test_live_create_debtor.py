@@ -28,12 +28,12 @@ def app():
 
 
 def test_new_contact_is_filled_in_and_closed_unsaved(app, sample_expected_path):
-    from image_to_cash.extract.pipeline import load_order_json
+    from image_to_cash.extract.schema import OrderData
     from image_to_cash.flow.create_debtor import debtor_checks, fill_new_debtor
     from image_to_cash.flow.order import open_order
     from image_to_cash.flow.runner import RunContext
 
-    order = load_order_json(sample_expected_path, settings=app.settings)
+    order = OrderData.model_validate_json(sample_expected_path.read_text(encoding="utf-8"))
     ctx = RunContext(order=order, app=app, settings=app.settings)
     assert open_order(ctx).ok
 

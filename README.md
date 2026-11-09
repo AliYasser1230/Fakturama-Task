@@ -73,29 +73,28 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 
 ```
 .
-├── main.py                       CLI: extract | discover | probe | run
+├── main.py                       CLI: run (image → saved Order + paid Invoice)
 ├── config/
 │   └── locators.yaml             every Fakturama control, found by name, label or container
 ├── image_to_cash/
 │   ├── settings.py               model, timeouts, paths (from .env)
 │   ├── errors.py                 ExtractionRejected, ManualReviewRequired, ...
 │   ├── numbers.py                exact Decimal money / percentage parsing and rounding
-│   ├── ocr.py                    Windows OCR / Apple Vision / Tesseract, words + boxes
+│   ├── ocr.py                    Windows' built-in OCR, words + boxes
 │   ├── extract/                  image → validated order (no Fakturama access)
 │   │   ├── schema.py             pydantic models of the order
 │   │   ├── llm_extractor.py      Claude vision → structured output
 │   │   ├── crosscheck.py         critical values must also appear in OCR text
 │   │   ├── normalize.py          dates, amounts, percentages, payment method, names
 │   │   ├── validate.py           line, net, VAT and gross arithmetic; required fields
-│   │   └── pipeline.py           runs the steps above; also loads a saved JSON
+│   │   └── pipeline.py           runs the steps above; also loads a saved transcription (--raw)
 │   ├── ui/                       Fakturama driver (Windows; pywinauto imported lazily)
 │   │   ├── app.py                connect to / start Fakturama, find controls, screen-level actions
 │   │   ├── locators.py           loads and validates config/locators.yaml
 │   │   ├── finder.py             resolves a locator in a control tree (live or recorded)
 │   │   ├── actions.py            click / type / date / dropdown / checkbox, each read back
 │   │   ├── waits.py              wait for a state or a stable value, not for time
-│   │   ├── grid_ocr.py           reads Fakturama's custom-drawn tables with OCR
-│   │   └── discover.py           records the UIA tree of each screen
+│   │   └── grid_ocr.py           reads Fakturama's custom-drawn tables with OCR
 │   ├── flow/                     the task's Order-first flow
 │   │   ├── runner.py             checks, stage gates, run in order, stop at the first failure
 │   │   ├── stages.py             the five stages of the task, in order
@@ -114,7 +113,7 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 │   └── report/
 │       └── run_report.py         runs/<time>-<reference>/: report, screenshots, manual review
 ├── scripts/
-│   └── windows_setup.ps1         one-command Windows setup + guided discovery
+│   └── windows_setup.ps1         one-command Windows setup and tests
 ├── samples/                      the supplied order image, its hand-checked transcription
 │                                 (*.raw.json) and the expected validated order (*.expected.json)
 ├── tests/                        unit tests (run on any OS)
@@ -129,8 +128,8 @@ order image ─► extract (Claude → JSON, OCR cross-check, normalize, arithme
 
 ## Development setup
 
-The extraction and the unit tests run on any OS. The Fakturama automation needs
-**Windows 10/11** with Fakturama installed.
+The unit tests run on any OS (the ones that need Windows OCR or Fakturama are skipped
+elsewhere). The bot itself needs **Windows 10/11** with Fakturama installed.
 
 ```bash
 python -m venv .venv
@@ -161,8 +160,7 @@ cp .env.example .env                            # then add your ANTHROPIC_API_KE
    It installs Python 3.11 x64 with winget if it is missing, creates `.venv`, installs
    `requirements.txt` and runs the tests, including Windows OCR on the sample image. If
    Microsoft's Visual C++ Redistributable (x64) is missing, it installs that too: pywinauto
-   needs it, and a new Windows may not have it. Then it waits for Fakturama and starts the
-   guided discovery (below). Use `-SkipDiscovery` to stop after the tests.
+   needs it, and a new Windows may not have it.
 
    The same steps by hand:
 
@@ -179,30 +177,14 @@ cp .env.example .env                            # then add your ANTHROPIC_API_KE
    pywinauto fails with `DLL load failed while importing win32ui`, install the
    [Visual C++ Redistributable x64](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
-## Discovering Fakturama's controls (Windows)
+## How the locators were built
 
-`locators.yaml` is built from what UI Automation really exposes, not from guesses. With
-Fakturama running:
-
-```powershell
-.venv\Scripts\python main.py discover            # guided: one prompt per screen
-.venv\Scripts\python main.py discover --list     # what each screen needs open
-.venv\Scripts\python main.py discover --only order_editor select_address   # redo some
-```
-
-Each prompt says what to open in Fakturama; press Enter to record it. Keep the PowerShell
-window next to Fakturama rather than on top of it. The tool is read-only: it brings
-Fakturama's windows to the front but never clicks or types. For every window it writes the
-control tree (`.tree.txt` / `.tree.json`), a screenshot (`.png`) and the OCR of that
-screenshot (`.ocr.json`). At the end it prints the path of a `.zip` with everything.
-
-To check `config/locators.yaml` against the Fakturama that is running now (read-only; it
-lists every control it finds on the screens that are open):
-
-```powershell
-.venv\Scripts\python main.py probe
-.venv\Scripts\python main.py probe --screen order_editor
-```
+`config/locators.yaml` is built from what UI Automation really exposes, not from guesses:
+every Fakturama screen the flow uses was recorded on Windows 11 (its control tree, a
+screenshot and the OCR of that screenshot). The recorded trees are kept in
+`tests/fixtures/uia/`, and the tests check every locator against them. The one-off
+recording tool was removed once the locators were done, so the code holds only what a run
+uses.
 
 ## Running the automation (Windows)
 
@@ -214,9 +196,6 @@ With Fakturama running and no New Order editor open:
 
 # no API key: use the saved transcription, still checked against the image's OCR
 .venv\Scripts\python main.py run samples\order_WEB-2026-0714-A17.png --raw samples\order_WEB-2026-0714-A17.raw.json
-
-# skip extraction: use a validated order JSON
-.venv\Scripts\python main.py run --from-json samples\order_WEB-2026-0714-A17.expected.json
 ```
 
 Each stage ends with a check that reads every value back from Fakturama; the run stops at
@@ -292,13 +271,9 @@ Nothing is saved.
 
 ## Extracting the order data
 
-```bash
-# Claude reads the image (needs ANTHROPIC_API_KEY in .env)
-python main.py extract samples/order_WEB-2026-0714-A17.png --out order.json --save-raw order.raw.json
-
-# Same checks without an API key, using a saved transcription
-python main.py extract samples/order_WEB-2026-0714-A17.png --raw samples/order_WEB-2026-0714-A17.raw.json
-```
+`run` starts by extracting and checking the order; Fakturama is touched only when the
+order is accepted. With `--raw`, a saved transcription replaces the Claude call and goes
+through the same checks.
 
 The Claude extraction has run live on the sample (Claude Opus 5.5, about 6,800 input and
 600 output tokens): its validated order is identical to the hand-checked expected order,
@@ -306,9 +281,8 @@ and a full `run` with it completed all five stages. The recorded demo used the s
 transcription (`--raw`) instead; it goes through the same OCR cross-check, normalization
 and arithmetic checks as Claude's output.
 
-The validated order goes to stdout (or `--out`); warnings and a one-line summary go to
-stderr. Exit code `0` = accepted, `1` = rejected (every problem is listed, and Fakturama is
-never touched). The four steps:
+Warnings and a one-line summary of the order are printed. A rejected order lists every
+problem, `run` exits with code `1`, and Fakturama is never touched. The four steps:
 
 | Step | Module | What it does |
 |---|---|---|
@@ -317,15 +291,12 @@ never touched). The four steps:
 | C | `normalize.py` | Converts to typed values: ISO dates, `Decimal` amounts, known payment methods, first/last name. Ambiguous input (`03/04/2026`, `1,234`, a three-part name) is an error, not a guess. |
 | D | `validate.py` | Line totals, net, VAT and gross arithmetic; PAID needs a payment date; the currency must match Fakturama's. |
 
-OCR engine by OS: Windows built-in OCR (Windows), Apple Vision (macOS, for development),
-Tesseract if installed.
+OCR: Windows' built-in OCR, through `winocr`.
 
 ## Changes from the design doc
 
 - **No `temperature: 0`.** Current Claude models reject the sampling parameters. Repeatable
   output comes from the strict output schema, verbatim-only instructions and the B–D checks.
-- **Apple Vision OCR on macOS**, in addition to Windows OCR and Tesseract, so the
-  extraction and the OCR cross-check can be developed and tested without Windows.
 - **Two schema layers**: a verbatim `Raw*` layer (what Claude returns and OCR is compared
   against) and a typed `OrderData` layer (what the Fakturama flow uses).
 - **Payment method before New Contact.** Fakturama 2.2.0 fills a contact's Payment list
@@ -478,7 +449,7 @@ In order of value:
 | 2 | Extraction: schema, Claude call, OCR cross-check, normalize, validate | done; the Claude call ran live on the sample with the same result as the hand-checked transcription |
 | 3 | UIA discovery on Windows | done: all 13 screens recorded from Fakturama 2.2.0 on Windows 11 |
 | 4 | UI helpers and `locators.yaml` | done: locators and finder, connect and waits, actions with read-back, table OCR; 5 live tests pass. Editing item-line cells moves to step 6 (needs a product line) |
-| 5 | Stage 1: open New Order | done: `main.py run` runs it from the image or JSON; live-tested |
+| 5 | Stage 1: open New Order | done: `main.py run` runs it from the image; live-tested |
 | 6 | Stages 2–3: select existing Debtor and Products, fill item lines | done: existing contact and products selected live; item lines completed with totals checked |
 | 7 | Stages 4–5: save Order, linked Invoice, paid status, verification | done and live-tested: a full `main.py run` from the image completed all five stages (PO000002 saved and open, INV000002 saved as paid on Jul 18, 2026 for $678.30) |
 | 8 | Create missing Debtor, Payment Method, VAT, Product | done and live-tested: contact (with delivery address), Bank Transfer, VAT 19% and both products created, saved once and reselected |

@@ -1,12 +1,10 @@
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-import main
 from image_to_cash.settings import Settings
-from image_to_cash.ui.app import format_probe, probe_tree
+from image_to_cash.ui.app import pick_fakturama_window
 from image_to_cash.ui.finder import DictNode, UiaNode
 from image_to_cash.ui.locators import load_locators
 
@@ -20,36 +18,6 @@ def _recording(stem):
 @pytest.fixture(scope="module")
 def locators():
     return load_locators(Settings().locators_file)
-
-
-def test_probe_reports_only_the_open_screens(locators):
-    results = probe_tree(_recording("02_order_editor"), locators)
-    screens = {r.screen for r in results}
-    assert {"main", "order_editor"} <= screens
-    assert "select_address" not in screens and "invoice_editor" not in screens
-    order = [r for r in results if r.screen == "order_editor"]
-    assert {r.control for r in order if not r.found} == {"tab_delivery_address", "delivery_address"}
-    number = next(r for r in order if r.control == "number")
-    assert "value='PO000001'" in number.detail
-
-
-def test_probe_lists_controls_that_are_not_visible_now(locators):
-    results = probe_tree(_recording("05_debtor_main_address"), locators, ["debtor_editor"])
-    missing = {r.control for r in results if not r.found}
-    assert {"alias", "payment"} <= missing
-    assert {"street", "zip", "city"}.isdisjoint(missing)
-
-
-def test_format_probe(locators):
-    lines = format_probe(probe_tree(_recording("12_invoice_editor"), locators, ["invoice_editor"]))
-    assert lines[0] == "invoice_editor: 17/21 found"
-    assert any(line.strip().startswith("ok  paid") for line in lines)
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="checks the non-Windows message")
-def test_cli_probe_needs_windows(capsys):
-    assert main.main(["probe"]) == 2
-    assert "Windows" in capsys.readouterr().err
 
 
 class FakeRect:
@@ -97,7 +65,14 @@ def test_uia_node_uses_safe_defaults_when_the_element_is_gone():
     assert node.value is None
 
 
-def test_a_closed_menu_is_not_reported(locators):
-    assert "data_menu" not in {r.screen for r in probe_tree(_recording("00_main"), locators)}
-    open_menu = probe_tree(_recording("01_data_menu"), locators, ["data_menu"])
-    assert len(open_menu) == 5 and all(r.found for r in open_menu)
+def test_pick_fakturama_window_only_takes_fakturamas_own_windows():
+    console, browser, splash, main_window = object(), object(), object(), object()
+    windows = [
+        ("C:\\Fakturama-Task - PowerShell", "CASCADIA_HOSTING_WINDOW_CLASS", console),
+        ("Downloads - Fakturama - Microsoft Edge", "Chrome_WidgetWin_1", browser),
+        ("Fakturama", "SWT_Window0", splash),
+        ("Fakturama - C:\\FakturamaData", "SWT_Window0", main_window),
+    ]
+    assert pick_fakturama_window(windows) is main_window
+    assert pick_fakturama_window(windows[:3]) is splash
+    assert pick_fakturama_window(windows[:2]) is None
