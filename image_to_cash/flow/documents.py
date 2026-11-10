@@ -6,10 +6,18 @@ from decimal import Decimal
 from image_to_cash.errors import ManualReviewRequired
 from image_to_cash.flow.lines import cell_amount, checked_cell
 from image_to_cash.flow.runner import Check
-from image_to_cash.ui.actions import parse_display_date
-from image_to_cash.ui.grid_ocr import GridRow, cell_matches
+from image_to_cash.ui.actions import MONTH_ABBR, parse_display_date
+from image_to_cash.ui.grid_ocr import GridRow, cell_key, cell_matches, cut_off_stem
 
 DOCS = "documents_list"
+
+
+def list_date_ok(shown: str, when: date) -> bool:
+    if parse_display_date(shown) == when:
+        return True
+    stem = cut_off_stem(" ".join((shown or "").split()))
+    full = f"{MONTH_ABBR[when.month - 1]} {when.day}, {when.year}"
+    return stem is not None and "," in stem and cell_key(full).startswith(cell_key(stem))
 
 
 def document_row(app, document: str, kind: str) -> GridRow:
@@ -27,7 +35,7 @@ def document_row(app, document: str, kind: str) -> GridRow:
 def document_checks(app, row: GridRow, *, label: str, document: str, when: date, cust_ref: str, state: str,
                     total: Decimal) -> list[Check]:
     cells = row.cells
-    shown_date, date_ok = checked_cell(app, DOCS, "table", row, "Date", lambda s: parse_display_date(s) == when)
+    shown_date, date_ok = checked_cell(app, DOCS, "table", row, "Date", lambda s: list_date_ok(s, when))
     shown_total, total_ok = checked_cell(app, DOCS, "table", row, "Total", lambda s: cell_amount(s) == total)
     return [
         Check(f"{label} in Documents: number", document, cells.get("Document", ""),

@@ -7,6 +7,7 @@ import pytest
 import main
 from image_to_cash.errors import ManualReviewRequired
 from image_to_cash.extract.schema import OrderData
+from image_to_cash.flow.documents import list_date_ok
 from image_to_cash.flow.order import open_order
 from image_to_cash.flow.runner import GateFailed, RunContext, Stage, format_run, run_flow
 from image_to_cash.flow.stages import STAGES
@@ -152,3 +153,17 @@ def test_a_line_that_differs_from_the_image_stops_the_order_before_saving(order)
     with pytest.raises(GateFailed, match="order line MAT-DESK-02 Qty."):
         STAGES[3].run(ctx)
     assert ("order_editor", "PO000001") not in app.saved
+
+
+@pytest.mark.parametrize("shown, ok", [
+    ("Nov 10, 2026", True),
+    ("Nov 10, 2...", True),
+    ("Nov 10, 2…", True),
+    ("Nov 10, ...", True),
+    ("Nov 1...", False),
+    ("Nov 11, 2...", False),
+    ("Nov 10, 2", False),
+    ("", False),
+])
+def test_documents_date_accepts_only_a_cut_off_year(shown, ok):
+    assert list_date_ok(shown, date(2026, 11, 10)) is ok
